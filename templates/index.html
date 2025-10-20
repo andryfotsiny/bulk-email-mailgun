@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Email Sender</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { margin-bottom: 30px; font-size: 24px; }
+        .card {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h2 { font-size: 18px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+
+        .provider-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .provider-tab {
+            flex: 1;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background: #f9f9f9;
+            cursor: pointer;
+            text-align: center;
+        }
+        .provider-tab:hover { background: #e9e9e9; }
+        .provider-tab.active {
+            background: #333;
+            color: white;
+            border-color: #333;
+        }
+
+        .config-section { display: none; }
+        .config-section.active { display: block; }
+
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        textarea { min-height: 100px; font-family: monospace; }
+        small { color: #666; font-size: 12px; }
+
+        button {
+            padding: 10px 20px;
+            border: 1px solid #333;
+            background: #333;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #555; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .file-upload {
+            border: 2px dashed #ccc;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            background: #fafafa;
+        }
+        .file-upload:hover { background: #f0f0f0; }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #eee;
+            border: 1px solid #ccc;
+            margin: 15px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #333;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .stat-box {
+            border: 1px solid #ccc;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-box h3 { font-size: 24px; margin-bottom: 5px; }
+        .stat-box p { font-size: 12px; color: #666; }
+
+        #progressContainer { display: none; }
+        #progressContainer.active { display: block; }
+
+        .alert {
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid;
+        }
+        .alert-success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .alert-error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .alert-info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Bulk Email Sender</h1>
+
+    <div class="card">
+        <h2>Email Provider</h2>
+        <div class="provider-tabs">
+            <div class="provider-tab" onclick="selectProvider('gmail')">
+                <strong>Gmail</strong><br>
+                <small>500/day</small>
+            </div>
+            <div class="provider-tab active" onclick="selectProvider('mailgun')">
+                <strong>Mailgun</strong><br>
+            </div>
+        </div>
+
+        <div id="gmailConfig" class="config-section">
+            <div class="form-group">
+                <label>SMTP Server</label>
+                <input type="text" id="gmailServer" value="smtp.gmail.com">
+            </div>
+            <div class="form-group">
+                <label>Port</label>
+                <input type="number" id="gmailPort" value="465">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="gmailEmail">
+            </div>
+            <div class="form-group">
+                <label>App Password</label>
+                <input type="password" id="gmailPassword">
+                <small>Use Gmail app password (16 characters)</small>
+            </div>
+        </div>
+
+        <div id="mailgunConfig" class="config-section active">
+            <div class="alert alert-info">
+                Get credentials at mailgun.com - Sign up and get API key from Settings
+            </div>
+            <div class="form-group">
+                <label>Mailgun Domain</label>
+                <input type="text" id="mailgunDomain" placeholder="mg.yourdomain.com">
+                <small>Example: sandboxXXXXX.mailgun.org</small>
+            </div>
+            <div class="form-group">
+                <label>Mailgun API Key</label>
+                <input type="password" id="mailgunApiKey" placeholder="key-XXXXXXXX">
+            </div>
+            <div class="form-group">
+                <label>Sender Email</label>
+                <input type="email" id="mailgunEmail" placeholder="noreply@yourdomain.com">
+            </div>
+        </div>
+
+        <button onclick="saveConfig()">Save Configuration</button>
+        <div id="configAlert"></div>
+    </div>
+
+    <div class="card">
+        <h2>Upload CSV</h2>
+        <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleUpload(event)">
+            <p><strong>Click to select CSV file</strong></p>
+            <small>Format: email,name,company,city</small>
+        </div>
+        <div id="fileInfo"></div>
+    </div>
+
+    <div class="card">
+        <h2>Email Content</h2>
+        <div class="form-group">
+            <label>Subject</label>
+            <input type="text" id="subject" placeholder="Email subject">
+        </div>
+        <div class="form-group">
+            <label>Body</label>
+            <textarea id="body" placeholder="Hello {{name}},&#10;&#10;Your message here...&#10;&#10;Variables: {{name}}, {{company}}, {{city}}, {{email}}"></textarea>
+        </div>
+        <button id="sendBtn" onclick="startSending()" disabled>Send Emails</button>
+    </div>
+
+    <div class="card" id="progressContainer">
+        <h2>Progress</h2>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+        </div>
+        <div class="stats">
+            <div class="stat-box"><h3 id="statTotal">0</h3><p>Total</p></div>
+            <div class="stat-box"><h3 id="statSent">0</h3><p>Sent</p></div>
+            <div class="stat-box"><h3 id="statFailed">0</h3><p>Failed</p></div>
+            <div class="stat-box"><h3 id="statCurrent">0</h3><p>Current</p></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allEmailsData = [];
+    let currentProvider = 'mailgun';
+    let ws;
+
+    function connectWebSocket() {
+        ws = new WebSocket('ws://localhost:8080/ws');
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'progress') {
+                updateProgress(msg.data);
+            }
+        };
+        ws.onclose = () => setTimeout(connectWebSocket, 3000);
+    }
+    connectWebSocket();
+
+    window.addEventListener('DOMContentLoaded', () => {
+        fetch('/api/config')
+            .then(r => r.json())
+            .then(data => {
+                if (data.provider) {
+                    selectProvider(data.provider, true);
+                }
+                if (data.smtp_server) document.getElementById('gmailServer').value = data.smtp_server;
+                if (data.smtp_port) document.getElementById('gmailPort').value = data.smtp_port;
+                if (data.email) {
+                    document.getElementById('gmailEmail').value = data.email;
+                    document.getElementById('mailgunEmail').value = data.email;
+                }
+                if (data.mailgun_domain) document.getElementById('mailgunDomain').value = data.mailgun_domain;
+            });
+    });
+
+    function selectProvider(provider, skipEvent) {
+        currentProvider = provider;
+
+        document.querySelectorAll('.provider-tab').forEach(el => {
+            el.classList.remove('active');
+        });
+
+        if (!skipEvent) {
+            event.currentTarget.classList.add('active');
+        } else {
+            document.querySelector(`.provider-tab:nth-child(${provider === 'gmail' ? 1 : 2})`).classList.add('active');
+        }
+
+        document.getElementById('gmailConfig').classList.remove('active');
+        document.getElementById('mailgunConfig').classList.remove('active');
+
+        if (provider === 'gmail') {
+            document.getElementById('gmailConfig').classList.add('active');
+        } else {
+            document.getElementById('mailgunConfig').classList.add('active');
+        }
+    }
+
+    function saveConfig() {
+        let config = { provider: currentProvider };
+
+        if (currentProvider === 'gmail') {
+            config.smtp_server = document.getElementById('gmailServer').value;
+            config.smtp_port = parseInt(document.getElementById('gmailPort').value);
+            config.email = document.getElementById('gmailEmail').value;
+            config.password = document.getElementById('gmailPassword').value;
+
+            if (!config.email || !config.password) {
+                showAlert('configAlert', 'Fill all Gmail fields', 'error');
+                return;
+            }
+        } else {
+            config.mailgun_domain = document.getElementById('mailgunDomain').value;
+            config.mailgun_api_key = document.getElementById('mailgunApiKey').value;
+            config.email = document.getElementById('mailgunEmail').value;
+
+            if (!config.mailgun_domain || !config.mailgun_api_key || !config.email) {
+                showAlert('configAlert', 'Fill all Mailgun fields', 'error');
+                return;
+            }
+        }
+
+        fetch('/api/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(config)
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('configAlert', 'Configuration saved', 'success');
+                } else {
+                    showAlert('configAlert', data.error, 'error');
+                }
+            })
+            .catch(err => showAlert('configAlert', 'Error: ' + err.message, 'error'));
+    }
+
+    function handleUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        document.getElementById('fileInfo').innerHTML = '<div class="alert alert-info">Loading...</div>';
+
+        fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    allEmailsData = data.emails;
+                    document.getElementById('fileInfo').innerHTML =
+                        `<div class="alert alert-success">${data.count} emails loaded</div>`;
+                    document.getElementById('sendBtn').disabled = false;
+                } else {
+                    document.getElementById('fileInfo').innerHTML =
+                        `<div class="alert alert-error">${data.error}</div>`;
+                }
+            })
+            .catch(err => {
+                document.getElementById('fileInfo').innerHTML =
+                    `<div class="alert alert-error">Error: ${err.message}</div>`;
+            });
+    }
+
+    function startSending() {
+        if (!allEmailsData.length) {
+            alert('Load CSV file first');
+            return;
+        }
+
+        const subject = document.getElementById('subject').value;
+        const body = document.getElementById('body').value;
+
+        if (!subject || !body) {
+            alert('Fill subject and body');
+            return;
+        }
+
+        const provider = currentProvider === 'mailgun' ? 'Mailgun' : 'Gmail';
+        if (!confirm(`Send ${allEmailsData.length} emails via ${provider}?`)) return;
+
+        document.getElementById('progressContainer').classList.add('active');
+        document.getElementById('sendBtn').disabled = true;
+
+        fetch('/api/send', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                emails: allEmailsData,
+                subject: subject,
+                body: body
+            })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                    document.getElementById('sendBtn').disabled = false;
+                    document.getElementById('progressContainer').classList.remove('active');
+                }
+            })
+            .catch(err => {
+                alert('Error: ' + err.message);
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('progressContainer').classList.remove('active');
+            });
+    }
+
+    function updateProgress(data) {
+        const percentage = Math.round(data.percentage);
+        document.getElementById('progressFill').style.width = percentage + '%';
+        document.getElementById('progressFill').textContent = percentage + '%';
+        document.getElementById('statTotal').textContent = data.total;
+        document.getElementById('statSent').textContent = data.sent;
+        document.getElementById('statFailed').textContent = data.failed;
+        document.getElementById('statCurrent').textContent = data.current;
+
+        if (data.current === data.total) {
+            setTimeout(() => {
+                alert(`Completed\n\nTotal: ${data.total}\nSent: ${data.sent}\nFailed: ${data.failed}`);
+                document.getElementById('sendBtn').disabled = false;
+            }, 1000);
+        }
+    }
+
+    function showAlert(elementId, message, type) {
+        const alertClass = 'alert-' + type;
+        document.getElementById(elementId).innerHTML =
+            `<div class="alert ${alertClass}">${message}</div>`;
+        setTimeout(() => {
+            document.getElementById(elementId).innerHTML = '';
+        }, 5000);
+    }
+</script>
+</body>
+</html>
