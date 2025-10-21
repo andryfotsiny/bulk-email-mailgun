@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bulk Email Sender</title>
+    <title>Envoi d'emails en masse</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -120,14 +120,14 @@
 </head>
 <body>
 <div class="container">
-    <h1>Bulk Email Sender</h1>
+    <h1>Envoi d’emails en masse</h1>
 
     <div class="card">
-        <h2>Email Provider</h2>
+        <h2>Fournisseur d’email</h2>
         <div class="provider-tabs">
             <div class="provider-tab" onclick="selectProvider('gmail')">
                 <strong>Gmail</strong><br>
-                <small>500/day</small>
+                <small>500/jour</small>
             </div>
             <div class="provider-tab active" onclick="selectProvider('mailgun')">
                 <strong>Mailgun</strong><br>
@@ -136,7 +136,7 @@
 
         <div id="gmailConfig" class="config-section">
             <div class="form-group">
-                <label>SMTP Server</label>
+                <label>Serveur SMTP</label>
                 <input type="text" id="gmailServer" value="smtp.gmail.com">
             </div>
             <div class="form-group">
@@ -148,68 +148,68 @@
                 <input type="email" id="gmailEmail">
             </div>
             <div class="form-group">
-                <label>App Password</label>
+                <label>Mot de passe d’application</label>
                 <input type="password" id="gmailPassword">
-                <small>Use Gmail app password (16 characters)</small>
+                <small>Utilisez un mot de passe d’application Gmail (16 caractères)</small>
             </div>
         </div>
 
         <div id="mailgunConfig" class="config-section active">
             <div class="alert alert-info">
-                Get credentials at mailgun.com - Sign up and get API key from Settings
+                Obtenez vos identifiants sur mailgun.com – inscrivez-vous et récupérez la clé API dans les paramètres.
             </div>
             <div class="form-group">
-                <label>Mailgun Domain</label>
-                <input type="text" id="mailgunDomain" placeholder="mg.yourdomain.com">
-                <small>Example: sandboxXXXXX.mailgun.org</small>
+                <label>Domaine Mailgun</label>
+                <input type="text" id="mailgunDomain" placeholder="mg.votredomaine.com">
+                <small>Exemple : sandboxXXXXX.mailgun.org</small>
             </div>
             <div class="form-group">
-                <label>Mailgun API Key</label>
+                <label>Clé API Mailgun</label>
                 <input type="password" id="mailgunApiKey" placeholder="key-XXXXXXXX">
             </div>
             <div class="form-group">
-                <label>Sender Email</label>
-                <input type="email" id="mailgunEmail" placeholder="noreply@yourdomain.com">
+                <label>Email de l’expéditeur</label>
+                <input type="email" id="mailgunEmail" placeholder="noreply@votredomaine.com">
             </div>
         </div>
 
-        <button onclick="saveConfig()">Save Configuration</button>
+        <button onclick="saveConfig()">Enregistrer la configuration</button>
         <div id="configAlert"></div>
     </div>
 
     <div class="card">
-        <h2>Upload CSV</h2>
+        <h2>Importer un fichier CSV</h2>
         <div class="file-upload" onclick="document.getElementById('fileInput').click()">
             <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleUpload(event)">
-            <p><strong>Click to select CSV file</strong></p>
-            <small>Format: email,name,company,city</small>
+            <p><strong>Cliquez pour sélectionner un fichier CSV</strong></p>
+            <small>Format : email,nom,entreprise,ville</small>
         </div>
         <div id="fileInfo"></div>
     </div>
 
     <div class="card">
-        <h2>Email Content</h2>
+        <h2>Contenu de l’email</h2>
         <div class="form-group">
-            <label>Subject</label>
-            <input type="text" id="subject" placeholder="Email subject">
+            <label>Objet</label>
+            <input type="text" id="subject" placeholder="Objet de l’email">
         </div>
         <div class="form-group">
-            <label>Body</label>
-            <textarea id="body" placeholder="Hello {{name}},&#10;&#10;Your message here...&#10;&#10;Variables: {{name}}, {{company}}, {{city}}, {{email}}"></textarea>
+            <label>Corps du message</label>
+            <textarea id="body" placeholder="Bonjour {{name}},&#10;&#10;Votre message ici...&#10;&#10;Variables : {{name}}, {{company}}, {{city}}, {{email}}"></textarea>
         </div>
-        <button id="sendBtn" onclick="startSending()" disabled>Send Emails</button>
+        <button id="sendBtn" onclick="startSending()" disabled>Envoyer les emails</button>
     </div>
 
     <div class="card" id="progressContainer">
-        <h2>Progress</h2>
+        <h2>Progression</h2>
         <div class="progress-bar">
             <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
         </div>
         <div class="stats">
             <div class="stat-box"><h3 id="statTotal">0</h3><p>Total</p></div>
-            <div class="stat-box"><h3 id="statSent">0</h3><p>Sent</p></div>
-            <div class="stat-box"><h3 id="statFailed">0</h3><p>Failed</p></div>
-            <div class="stat-box"><h3 id="statCurrent">0</h3><p>Current</p></div>
+            <div class="stat-box"><h3 id="statSent">0</h3><p>Envoyés</p></div>
+            <div class="stat-box"><h3 id="statFailed">0</h3><p>Échoués</p></div>
+            <div class="stat-box"><h3 id="statCurrent">0</h3><p>En cours</p></div>
         </div>
     </div>
 </div>
@@ -281,7 +281,7 @@
             config.password = document.getElementById('gmailPassword').value;
 
             if (!config.email || !config.password) {
-                showAlert('configAlert', 'Fill all Gmail fields', 'error');
+                showAlert('configAlert', 'Veuillez remplir tous les champs Gmail', 'error');
                 return;
             }
         } else {
@@ -290,7 +290,7 @@
             config.email = document.getElementById('mailgunEmail').value;
 
             if (!config.mailgun_domain || !config.mailgun_api_key || !config.email) {
-                showAlert('configAlert', 'Fill all Mailgun fields', 'error');
+                showAlert('configAlert', 'Veuillez remplir tous les champs Mailgun', 'error');
                 return;
             }
         }
@@ -303,12 +303,12 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    showAlert('configAlert', 'Configuration saved', 'success');
+                    showAlert('configAlert', 'Configuration enregistrée', 'success');
                 } else {
                     showAlert('configAlert', data.error, 'error');
                 }
             })
-            .catch(err => showAlert('configAlert', 'Error: ' + err.message, 'error'));
+            .catch(err => showAlert('configAlert', 'Erreur : ' + err.message, 'error'));
     }
 
     function handleUpload(event) {
@@ -318,7 +318,7 @@
         const formData = new FormData();
         formData.append('file', file);
 
-        document.getElementById('fileInfo').innerHTML = '<div class="alert alert-info">Loading...</div>';
+        document.getElementById('fileInfo').innerHTML = '<div class="alert alert-info">Chargement...</div>';
 
         fetch('/api/upload', {
             method: 'POST',
@@ -329,7 +329,7 @@
                 if (data.success) {
                     allEmailsData = data.emails;
                     document.getElementById('fileInfo').innerHTML =
-                        `<div class="alert alert-success">${data.count} emails loaded</div>`;
+                        `<div class="alert alert-success">${data.count} emails chargés</div>`;
                     document.getElementById('sendBtn').disabled = false;
                 } else {
                     document.getElementById('fileInfo').innerHTML =
@@ -338,13 +338,13 @@
             })
             .catch(err => {
                 document.getElementById('fileInfo').innerHTML =
-                    `<div class="alert alert-error">Error: ${err.message}</div>`;
+                    `<div class="alert alert-error">Erreur : ${err.message}</div>`;
             });
     }
 
     function startSending() {
         if (!allEmailsData.length) {
-            alert('Load CSV file first');
+            alert('Veuillez d’abord charger un fichier CSV');
             return;
         }
 
@@ -352,12 +352,12 @@
         const body = document.getElementById('body').value;
 
         if (!subject || !body) {
-            alert('Fill subject and body');
+            alert('Veuillez remplir l’objet et le corps du message');
             return;
         }
 
         const provider = currentProvider === 'mailgun' ? 'Mailgun' : 'Gmail';
-        if (!confirm(`Send ${allEmailsData.length} emails via ${provider}?`)) return;
+        if (!confirm(`Envoyer ${allEmailsData.length} emails via ${provider} ?`)) return;
 
         document.getElementById('progressContainer').classList.add('active');
         document.getElementById('sendBtn').disabled = true;
@@ -374,13 +374,13 @@
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
-                    alert('Error: ' + (data.error || 'Unknown error'));
+                    alert('Erreur : ' + (data.error || 'Erreur inconnue'));
                     document.getElementById('sendBtn').disabled = false;
                     document.getElementById('progressContainer').classList.remove('active');
                 }
             })
             .catch(err => {
-                alert('Error: ' + err.message);
+                alert('Erreur : ' + err.message);
                 document.getElementById('sendBtn').disabled = false;
                 document.getElementById('progressContainer').classList.remove('active');
             });
@@ -397,7 +397,7 @@
 
         if (data.current === data.total) {
             setTimeout(() => {
-                alert(`Completed\n\nTotal: ${data.total}\nSent: ${data.sent}\nFailed: ${data.failed}`);
+                alert(`Terminé\n\nTotal : ${data.total}\nEnvoyés : ${data.sent}\nÉchoués : ${data.failed}`);
                 document.getElementById('sendBtn').disabled = false;
             }, 1000);
         }
