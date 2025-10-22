@@ -6,7 +6,7 @@ require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/joho/godotenv v1.5.1
 	github.com/mailgun/mailgun-go/v4 v4.12.0
-	github.com/mattn/go-sqlite3 v1.14.18
+	github.com/mattn/go-sqlite3 v1.14.24 // Version mise à jour
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
 

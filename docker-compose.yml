@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Application Go
+  bulk-email-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bulk-email-app
+    environment:
+      # Configuration Mailgun
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER}
+      - MAILGUN_DOMAIN=${MAILGUN_DOMAIN}
+      - MAILGUN_API_KEY=${MAILGUN_API_KEY}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+    volumes:
+      # Persister la base de données SQLite
+      - ./emails.db:/app/emails.db
+      # Persister les données CSV
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - bulk-email-network
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: bulk-email-nginx
+    ports:
+      - "8081:80"
+    volumes:
+      # Configuration Nginx
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Logs Nginx
+      - ./nginx/logs:/var/log/nginx
+      # Pour SSL (décommenter si vous avez des certificats)
+      # - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - bulk-email-app
+    restart: unless-stopped
+    networks:
+      - bulk-email-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  bulk-email-network:
+    driver: bridge
+
+volumes:
+  db-data:

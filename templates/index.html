@@ -3,34 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Envoi d'emails en masse</title>
+    <title>AxSender - Envoi d'emails en masse</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
-
             padding: 20px;
         }
         .container { max-width: 1200px; margin: 0 auto; }
         h1 {
             margin-bottom: 30px;
-            font-size: 24px;
+            font-size: 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: black;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
         .logout-btn {
             padding: 8px 16px;
-            background: #dc3545;
-            color: white;
+
             border: none;
             cursor: pointer;
             font-size: 13px;
             text-decoration: none;
         }
-        .logout-btn:hover {
-            background: #c82333;
-        }
+
         .card {
             background: white;
             border: 1px solid #ddd;
@@ -150,7 +152,6 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
-
         }
         th, td {
             padding: 10px;
@@ -174,9 +175,11 @@
 <body>
 <div class="container">
     <h1>
-        <span>Envoi d'emails en masse</span>
+        <span>AxSender</span>
         <a href="/logout" class="logout-btn">Déconnexion</a>
+
     </h1>
+
 
     <div class="tabs">
         <button class="tab active" onclick="switchTab('send')">Envoi</button>

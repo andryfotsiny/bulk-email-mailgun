@@ -17,5 +17,14 @@ nano .env
 go run main.go
 
 ```
-
+make help           # Voir toutes les commandes
+make install        # Installation complète (dev)
+make up             # Démarrer (HTTP)
+make down           # Arrêter
+make logs           # Voir les logs
+make status         # Statut des containers
+make health         # Vérifier la santé
+make backup-db      # Sauvegarder la DB
+make ssl-setup      # Configurer SSL (prod)
+make prod           # Déployer production
 
