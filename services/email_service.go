@@ -65,7 +65,7 @@ func (s *EmailService) sendWithMailgun(to, subject, body string) error {
 	mg := mailgun.NewMailgun(config.AppConfig.MailgunDomain, config.AppConfig.MailgunAPIKey)
 
 	randomEmail := generateRandomEmail()
-	displayName := "Admirateur Secret 💝"
+	displayName := "Admirateur Secret "
 	fromAddress := fmt.Sprintf("%s <%s>", displayName, randomEmail)
 
 	message := mg.NewMessage(
@@ -86,7 +86,7 @@ func (s *EmailService) sendWithMailgun(to, subject, body string) error {
 		return err
 	}
 
-	fmt.Printf("✅ Email envoyé depuis %s → %s (ID: %s, Response: %s)\n", randomEmail, to, id, resp)
+	fmt.Printf("Email envoyé depuis %s → %s (ID: %s, Response: %s)\n", randomEmail, to, id, resp)
 	return nil
 }
 
@@ -124,7 +124,7 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 		fmt.Printf("❌ Erreur création contenu: %v\n", err)
 		return
 	}
-	fmt.Printf("📝 Contenu d'email créé (ID: %d)\n", contentID)
+	fmt.Printf("Contenu d'email créé (ID: %d)\n", contentID)
 
 	concurrency := 10
 	if config.AppConfig.Provider == "mailgun" {
@@ -159,7 +159,6 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				return
 			}
 
-			// 3. Générer un sender aléatoire
 			randomEmail := generateRandomEmail()
 			senderID, err := database.InsertOrGetSender(randomEmail, "Admirateur Secret")
 			if err != nil {
@@ -175,10 +174,8 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				return
 			}
 
-			// 4. Personnaliser le body
 			body := s.personalizeBody(req.Body, data)
 
-			// 5. Envoyer l'email
 			status := "sent"
 			errorMessage := ""
 
@@ -216,7 +213,7 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 		semaphore <- struct{}{}
 	}
 
-	fmt.Printf("\n🎉 Terminé! Total: %d | Envoyés: %d | Échoués: %d\n", total, sent, failed)
+	fmt.Printf("\n Terminé! Total: %d | Envoyés: %d | Échoués: %d\n", total, sent, failed)
 }
 
 func (s *EmailService) personalizeBody(body string, data models.EmailData) string {

@@ -19,7 +19,7 @@ func main() {
 	// Test 1: Créer un contenu d'email
 	fmt.Println("📝 Test 1: Création d'un contenu d'email")
 	contentID, err := database.InsertEmailContent(
-		"Message Secret 💝",
+		"Message ",
 		"Bonjour {{name}},\n\nCeci est un message secret pour toi...",
 	)
 	if err != nil {

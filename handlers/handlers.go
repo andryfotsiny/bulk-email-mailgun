@@ -3,6 +3,7 @@ package handlers
 import (
 	"bulk-email-mailgun/config"
 	"bulk-email-mailgun/database"
+	"bulk-email-mailgun/middleware"
 	"bulk-email-mailgun/models"
 	"bulk-email-mailgun/services"
 	"encoding/csv"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -244,4 +246,121 @@ func (h *Handler) RecipientsHandler(w http.ResponseWriter, r *http.Request) {
 		"success":    true,
 		"recipients": recipients,
 	})
+}
+
+// ResetDatabaseHandler réinitialise la base de données
+func (h *Handler) ResetDatabaseHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != "POST" {
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	if err := database.TruncateAllTables(); err != nil {
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(models.APIResponse{
+		Success: true,
+		Message: "Base de données vidée avec succès",
+	})
+}
+
+// LoginPageHandler affiche la page de login
+func (h *Handler) LoginPageHandler(w http.ResponseWriter, r *http.Request) {
+	// Vérifier si déjà connecté
+	cookie, err := r.Cookie("session_token")
+	if err == nil && middleware.Manager.ValidateSession(cookie.Value) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	http.ServeFile(w, r, "templates/login.html")
+}
+
+// LoginHandler gère l'authentification
+func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != "POST" {
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Success: false,
+			Error:   "Method not allowed",
+		})
+		return
+	}
+
+	var credentials struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Success: false,
+			Error:   "Invalid request",
+		})
+		return
+	}
+
+	// Valider les identifiants
+	if !middleware.ValidateCredentials(credentials.Username, credentials.Password) {
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Success: false,
+			Error:   "Identifiants incorrects",
+		})
+		return
+	}
+
+	// Créer une session
+	token, err := middleware.Manager.CreateSession(credentials.Username)
+	if err != nil {
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Success: false,
+			Error:   "Erreur création session",
+		})
+		return
+	}
+
+	// Définir le cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    token,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true,
+		Path:     "/",
+	})
+
+	json.NewEncoder(w).Encode(models.APIResponse{
+		Success: true,
+		Message: "Connexion réussie",
+	})
+}
+
+// LogoutHandler gère la déconnexion
+func (h *Handler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	// Récupérer le cookie
+	cookie, err := r.Cookie("session_token")
+	if err == nil {
+		middleware.Manager.DeleteSession(cookie.Value)
+	}
+
+	// Supprimer le cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		HttpOnly: true,
+		Path:     "/",
+	})
+
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

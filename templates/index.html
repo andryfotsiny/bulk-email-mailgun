@@ -12,7 +12,25 @@
             padding: 20px;
         }
         .container { max-width: 1200px; margin: 0 auto; }
-        h1 { margin-bottom: 30px; font-size: 24px; }
+        h1 {
+            margin-bottom: 30px;
+            font-size: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logout-btn {
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: none;
+        }
+        .logout-btn:hover {
+            background: #c82333;
+        }
         .card {
             background: white;
             border: 1px solid #ddd;
@@ -132,6 +150,7 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
+
         }
         th, td {
             padding: 10px;
@@ -154,7 +173,10 @@
 </head>
 <body>
 <div class="container">
-    <h1>Envoi d'emails en masse</h1>
+    <h1>
+        <span>Envoi d'emails en masse</span>
+        <a href="/logout" class="logout-btn">Déconnexion</a>
+    </h1>
 
     <div class="tabs">
         <button class="tab active" onclick="switchTab('send')">Envoi</button>
@@ -183,7 +205,7 @@
             </div>
             <div class="form-group">
                 <label>Corps du message</label>
-                <textarea id="body" placeholder="Bonjour {{name}},&#10;&#10;Votre message ici...&#10;&#10;Variables : {{name}}, {{company}}, {{city}}, {{email}}"></textarea>
+                <textarea id="body" placeholder="Bonjour ..."></textarea>
             </div>
             <button id="sendBtn" onclick="startSending()" disabled>Envoyer les emails</button>
         </div>

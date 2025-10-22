@@ -334,6 +334,57 @@ func DeleteOldSends(days int) (int64, error) {
 	return result.RowsAffected()
 }
 
+// TruncateAllTables vide toutes les tables (garde la structure)
+func TruncateAllTables() error {
+	queries := []string{
+		"DELETE FROM email_sends",
+		"DELETE FROM email_contents",
+		"DELETE FROM senders",
+		"DELETE FROM recipients",
+		"DELETE FROM sqlite_sequence", // Reset auto-increment
+	}
+
+	for _, query := range queries {
+		if _, err := DB.Exec(query); err != nil {
+			return fmt.Errorf("erreur truncate: %v", err)
+		}
+	}
+
+	log.Println("✅ Toutes les tables ont été vidées")
+	return nil
+}
+
+// DropAllTables supprime toutes les tables
+func DropAllTables() error {
+	queries := []string{
+		"DROP TABLE IF EXISTS email_sends",
+		"DROP TABLE IF EXISTS email_contents",
+		"DROP TABLE IF EXISTS senders",
+		"DROP TABLE IF EXISTS recipients",
+	}
+
+	for _, query := range queries {
+		if _, err := DB.Exec(query); err != nil {
+			return fmt.Errorf("erreur drop: %v", err)
+		}
+	}
+
+	log.Println("Toutes les tables ont été supprimées")
+	return nil
+}
+
+// ResetDatabase supprime et recrée toutes les tables
+func ResetDatabase() error {
+	if err := DropAllTables(); err != nil {
+		return err
+	}
+	if err := createTables(); err != nil {
+		return err
+	}
+	log.Println("Base de données réinitialisée")
+	return nil
+}
+
 // Close ferme la connexion à la base de données
 func Close() error {
 	if DB != nil {
