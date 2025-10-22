@@ -31,9 +31,6 @@ type Sender struct {
 type Recipient struct {
 	ID        int
 	Email     string
-	Name      string
-	Company   string
-	City      string
 	CreatedAt time.Time
 }
 
@@ -95,9 +92,6 @@ func createTables() error {
 	CREATE TABLE IF NOT EXISTS recipients (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		email TEXT UNIQUE NOT NULL,
-		name TEXT,
-		company TEXT,
-		city TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -160,7 +154,7 @@ func InsertOrGetSender(email, displayName string) (int64, error) {
 }
 
 // InsertOrGetRecipient insère un recipient ou retourne son ID s'il existe
-func InsertOrGetRecipient(email, name, company, city string) (int64, error) {
+func InsertOrGetRecipient(email string) (int64, error) {
 	// Vérifier si le recipient existe déjà
 	var id int64
 	query := `SELECT id FROM recipients WHERE email = ?`
@@ -168,8 +162,8 @@ func InsertOrGetRecipient(email, name, company, city string) (int64, error) {
 
 	if err == sql.ErrNoRows {
 		// Insérer le nouveau recipient
-		insertQuery := `INSERT INTO recipients (email, name, company, city) VALUES (?, ?, ?, ?)`
-		result, err := DB.Exec(insertQuery, email, name, company, city)
+		insertQuery := `INSERT INTO recipients (email) VALUES (?)`
+		result, err := DB.Exec(insertQuery, email)
 		if err != nil {
 			return 0, err
 		}
@@ -197,9 +191,6 @@ func GetAllEmailSends() ([]map[string]interface{}, error) {
 			s.email as sender_email,
 			s.display_name as sender_name,
 			r.email as recipient_email,
-			r.name as recipient_name,
-			r.company,
-			r.city,
 			ec.subject,
 			ec.body,
 			es.status,
@@ -221,12 +212,12 @@ func GetAllEmailSends() ([]map[string]interface{}, error) {
 	var results []map[string]interface{}
 	for rows.Next() {
 		var (
-			id, senderEmail, senderName, recipientEmail, recipientName string
-			company, city, subject, body, status, errorMessage, sentAt string
+			id, senderEmail, senderName, recipientEmail string
+			subject, body, status, errorMessage, sentAt string
 		)
 
 		err := rows.Scan(&id, &senderEmail, &senderName, &recipientEmail,
-			&recipientName, &company, &city, &subject, &body, &status, &errorMessage, &sentAt)
+			&subject, &body, &status, &errorMessage, &sentAt)
 		if err != nil {
 			return nil, err
 		}
@@ -236,9 +227,6 @@ func GetAllEmailSends() ([]map[string]interface{}, error) {
 			"sender_email":    senderEmail,
 			"sender_name":     senderName,
 			"recipient_email": recipientEmail,
-			"recipient_name":  recipientName,
-			"company":         company,
-			"city":            city,
 			"subject":         subject,
 			"body":            body,
 			"status":          status,
@@ -282,7 +270,7 @@ func GetStats() (map[string]interface{}, error) {
 
 // GetRecipientsByEmail recherche des recipients par email
 func GetRecipientsByEmail(email string) ([]Recipient, error) {
-	query := `SELECT id, email, name, company, city, created_at FROM recipients WHERE email LIKE ?`
+	query := `SELECT id, email, created_at FROM recipients WHERE email LIKE ?`
 	rows, err := DB.Query(query, "%"+email+"%")
 	if err != nil {
 		return nil, err
@@ -292,7 +280,7 @@ func GetRecipientsByEmail(email string) ([]Recipient, error) {
 	var recipients []Recipient
 	for rows.Next() {
 		var r Recipient
-		err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.Company, &r.City, &r.CreatedAt)
+		err := rows.Scan(&r.ID, &r.Email, &r.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -304,7 +292,7 @@ func GetRecipientsByEmail(email string) ([]Recipient, error) {
 
 // GetAllRecipients récupère tous les recipients
 func GetAllRecipients() ([]Recipient, error) {
-	query := `SELECT id, email, name, company, city, created_at FROM recipients ORDER BY created_at DESC`
+	query := `SELECT id, email, created_at FROM recipients ORDER BY created_at DESC`
 	rows, err := DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -314,7 +302,7 @@ func GetAllRecipients() ([]Recipient, error) {
 	var recipients []Recipient
 	for rows.Next() {
 		var r Recipient
-		err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.Company, &r.City, &r.CreatedAt)
+		err := rows.Scan(&r.ID, &r.Email, &r.CreatedAt)
 		if err != nil {
 			return nil, err
 		}

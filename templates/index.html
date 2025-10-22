@@ -26,7 +26,6 @@
         }
         .logout-btn {
             padding: 8px 16px;
-
             border: none;
             cursor: pointer;
             font-size: 13px;
@@ -177,9 +176,7 @@
     <h1>
         <span>AxSender</span>
         <a href="/logout" class="logout-btn">Déconnexion</a>
-
     </h1>
-
 
     <div class="tabs">
         <button class="tab active" onclick="switchTab('send')">Envoi</button>
@@ -195,7 +192,7 @@
             <div class="file-upload" onclick="document.getElementById('fileInput').click()">
                 <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleUpload(event)">
                 <p><strong>Cliquez pour sélectionner un fichier CSV</strong></p>
-                <small>Format : email,nom,entreprise,ville</small>
+                <small>Format : une adresse email par ligne (ou email en première colonne)</small>
             </div>
             <div id="fileInfo"></div>
         </div>
@@ -280,14 +277,13 @@
                         <th>ID</th>
                         <th>De</th>
                         <th>À</th>
-                        <th>Nom</th>
                         <th>Sujet</th>
                         <th>Status</th>
                         <th>Date</th>
                     </tr>
                     </thead>
                     <tbody id="historyBody">
-                    <tr><td colspan="7" style="text-align:center;">Chargement...</td></tr>
+                    <tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -305,14 +301,11 @@
                     <tr>
                         <th>ID</th>
                         <th>Email</th>
-                        <th>Nom</th>
-                        <th>Entreprise</th>
-                        <th>Ville</th>
                         <th>Date ajout</th>
                     </tr>
                     </thead>
                     <tbody id="recipientsBody">
-                    <tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>
+                    <tr><td colspan="3" style="text-align:center;">Chargement...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -456,7 +449,7 @@
     }
 
     function loadHistory() {
-        document.getElementById('historyBody').innerHTML = '<tr><td colspan="7" style="text-align:center;">Chargement...</td></tr>';
+        document.getElementById('historyBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>';
 
         fetch('/api/history')
             .then(r => r.json())
@@ -464,7 +457,7 @@
                 if (data.success) {
                     const tbody = document.getElementById('historyBody');
                     if (data.history.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Aucun envoi</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucun envoi</td></tr>';
                         return;
                     }
 
@@ -476,7 +469,6 @@
                             <td>${h.id}</td>
                             <td>${h.sender_email}</td>
                             <td>${h.recipient_email}</td>
-                            <td>${h.recipient_name || ''}</td>
                             <td>${h.subject}</td>
                             <td class="${statusClass}">${h.status}</td>
                             <td>${new Date(h.sent_at).toLocaleString()}</td>
@@ -486,12 +478,12 @@
                 }
             })
             .catch(err => {
-                document.getElementById('historyBody').innerHTML = '<tr><td colspan="7" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
+                document.getElementById('historyBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
             });
     }
 
     function loadRecipients() {
-        document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>';
+        document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="3" style="text-align:center;">Chargement...</td></tr>';
 
         fetch('/api/recipients')
             .then(r => r.json())
@@ -499,7 +491,7 @@
                 if (data.success) {
                     const tbody = document.getElementById('recipientsBody');
                     if (data.recipients.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucun destinataire</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Aucun destinataire</td></tr>';
                         return;
                     }
 
@@ -509,9 +501,6 @@
                         row.innerHTML = `
                             <td>${r.ID}</td>
                             <td>${r.Email}</td>
-                            <td>${r.Name || ''}</td>
-                            <td>${r.Company || ''}</td>
-                            <td>${r.City || ''}</td>
                             <td>${new Date(r.CreatedAt).toLocaleString()}</td>
                         `;
                         tbody.appendChild(row);
@@ -519,7 +508,7 @@
                 }
             })
             .catch(err => {
-                document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
+                document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="3" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
             });
     }
 </script>

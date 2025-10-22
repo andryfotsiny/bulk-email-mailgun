@@ -11,10 +11,7 @@ type EmailConfig struct {
 }
 
 type EmailData struct {
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Company string `json:"company"`
-	City    string `json:"city"`
+	Email string `json:"email"`
 }
 
 type SendRequest struct {

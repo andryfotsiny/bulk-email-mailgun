@@ -131,22 +131,20 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	for i, record := range records {
 		if i == 0 {
-			continue
+			continue // Skip header
 		}
-		if len(record) >= 2 {
+		if len(record) >= 1 {
+			emailAddr := strings.TrimSpace(record[0])
+			if emailAddr == "" {
+				continue
+			}
+
 			email := models.EmailData{
-				Email: strings.TrimSpace(record[0]),
-				Name:  strings.TrimSpace(record[1]),
-			}
-			if len(record) >= 3 {
-				email.Company = strings.TrimSpace(record[2])
-			}
-			if len(record) >= 4 {
-				email.City = strings.TrimSpace(record[3])
+				Email: emailAddr,
 			}
 
 			// Insérer dans la DB
-			_, err := database.InsertOrGetRecipient(email.Email, email.Name, email.Company, email.City)
+			_, err := database.InsertOrGetRecipient(emailAddr)
 			if err == nil {
 				insertedCount++
 			}

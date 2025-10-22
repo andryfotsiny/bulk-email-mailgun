@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
 	"github.com/mailgun/mailgun-go/v4"
@@ -140,12 +139,7 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 			defer func() { <-semaphore }()
 
 			// 2. Insérer/récupérer le recipient
-			recipientID, err := database.InsertOrGetRecipient(
-				data.Email,
-				data.Name,
-				data.Company,
-				data.City,
-			)
+			recipientID, err := database.InsertOrGetRecipient(data.Email)
 			if err != nil {
 				fmt.Printf("❌ Erreur recipient: %v\n", err)
 				failed++
@@ -174,12 +168,10 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				return
 			}
 
-			body := s.personalizeBody(req.Body, data)
-
 			status := "sent"
 			errorMessage := ""
 
-			if err := s.SendEmail(data.Email, req.Subject, body); err != nil {
+			if err := s.SendEmail(data.Email, req.Subject, req.Body); err != nil {
 				status = "failed"
 				errorMessage = err.Error()
 				failed++
@@ -214,12 +206,4 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 	}
 
 	fmt.Printf("\n Terminé! Total: %d | Envoyés: %d | Échoués: %d\n", total, sent, failed)
-}
-
-func (s *EmailService) personalizeBody(body string, data models.EmailData) string {
-	body = strings.ReplaceAll(body, "{{name}}", data.Name)
-	body = strings.ReplaceAll(body, "{{company}}", data.Company)
-	body = strings.ReplaceAll(body, "{{city}}", data.City)
-	body = strings.ReplaceAll(body, "{{email}}", data.Email)
-	return body
 }

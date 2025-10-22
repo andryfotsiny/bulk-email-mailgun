@@ -18,30 +18,45 @@ go run main.go
 
 ```
 
-make help - Affiche l'aide
+# Affiche l'aide
+```bash
+make help
+```
+# Installation complète
+make install
 
-make install - Installation complète
+# Démarrer l'application
+make start
 
-make start - Démarrer l'application
+# Arrêter l'application
+make stop
 
-make stop - Arrêter l'application
+# Redémarrer l'application
+make restart
 
-make restart - Redémarrer l'application
+# Voir tous les logs
+make logs
 
-make rebuild - Tout reconstruire (clean + install)
+# Logs de l'app Go uniquement
+make logs-app
 
-make logs - Voir les logs
+# Logs de Nginx uniquement
+make logs-nginx
 
-make logs-app - Voir les logs de l'app Go uniquement
+# Statut des containers
+make status
 
-make logs-nginx - Voir les logs de Nginx uniquement
+# Sauvegarder la base de données
+make backup
 
-make status - Statut des containers
+# Nettoyer tout
+make clean
 
-make backup - Sauvegarder la base de données
+# Tout reconstruire
+make rebuild
 
-make clean - Nettoyer tout
+# Ouvrir un shell dans l'app
+make shell
 
-make shell - Ouvrir un shell dans l'app
-
-make ssl - Configurer SSL (DOMAIN=... EMAIL=...)
+# Configurer SSL (à exécuter avec votre domaine et email)
+make ssl DOMAIN=votre-domaine.com EMAIL=vous@email.com
