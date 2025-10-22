@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"bulk-email-mailgun/config"
+	"bulk-email-mailgun/database"
 	"bulk-email-mailgun/models"
 	"bulk-email-mailgun/services"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -123,6 +125,8 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var emails []models.EmailData
+	insertedCount := 0
+
 	for i, record := range records {
 		if i == 0 {
 			continue
@@ -138,6 +142,13 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			if len(record) >= 4 {
 				email.City = strings.TrimSpace(record[3])
 			}
+
+			// Insérer dans la DB
+			_, err := database.InsertOrGetRecipient(email.Email, email.Name, email.Company, email.City)
+			if err == nil {
+				insertedCount++
+			}
+
 			emails = append(emails, email)
 		}
 	}
@@ -146,16 +157,17 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Count:   len(emails),
 		Emails:  emails,
+		Message: fmt.Sprintf("%d recipients ajoutés/mis à jour dans la base de données", insertedCount),
 	})
 }
 
 func (h *Handler) SendHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if config.AppConfig.Email == "" {
+	if config.AppConfig.MailgunDomain == "" || config.AppConfig.MailgunAPIKey == "" {
 		json.NewEncoder(w).Encode(models.APIResponse{
 			Success: false,
-			Error:   "Email not configured",
+			Error:   "Mailgun not configured",
 		})
 		return
 	}
@@ -174,5 +186,62 @@ func (h *Handler) SendHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(models.APIResponse{
 		Success: true,
 		Message: "Sending started",
+	})
+}
+
+// StatsHandler retourne les statistiques
+func (h *Handler) StatsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	stats, err := database.GetStats()
+	if err != nil {
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"stats":   stats,
+	})
+}
+
+// HistoryHandler retourne l'historique des envois
+func (h *Handler) HistoryHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	history, err := database.GetAllEmailSends()
+	if err != nil {
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"history": history,
+	})
+}
+
+// RecipientsHandler retourne tous les recipients
+func (h *Handler) RecipientsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	recipients, err := database.GetAllRecipients()
+	if err != nil {
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"recipients": recipients,
 	})
 }

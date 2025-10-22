@@ -2,10 +2,12 @@ package services
 
 import (
 	"bulk-email-mailgun/config"
+	"bulk-email-mailgun/database"
 	"bulk-email-mailgun/models"
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -17,6 +19,35 @@ type EmailService struct{}
 
 func NewEmailService() *EmailService {
 	return &EmailService{}
+}
+
+// generateRandomEmail génère un email aléatoire
+func generateRandomEmail() string {
+	rand.Seed(time.Now().UnixNano())
+
+	chars := "abcdefghijklmnopqrstuvwxyz0123456789"
+	length := 10
+	result := make([]byte, length)
+
+	for i := range result {
+		result[i] = chars[rand.Intn(len(chars))]
+	}
+
+	romanticNames := []string{
+		"secret.admirer",
+		"mystery.lover",
+		"anonymous.heart",
+		"secret.love",
+		"hidden.romance",
+		"unknown.angel",
+		"mystery.angel",
+		"secret.angel",
+	}
+
+	randomName := romanticNames[rand.Intn(len(romanticNames))]
+	randomSuffix := string(result[:6])
+
+	return fmt.Sprintf("%s.%s@%s", randomName, randomSuffix, config.AppConfig.MailgunDomain)
 }
 
 func (s *EmailService) SendEmail(to, subject, body string) error {
@@ -33,8 +64,12 @@ func (s *EmailService) sendWithMailgun(to, subject, body string) error {
 
 	mg := mailgun.NewMailgun(config.AppConfig.MailgunDomain, config.AppConfig.MailgunAPIKey)
 
+	randomEmail := generateRandomEmail()
+	displayName := "Admirateur Secret 💝"
+	fromAddress := fmt.Sprintf("%s <%s>", displayName, randomEmail)
+
 	message := mg.NewMessage(
-		config.AppConfig.Email,
+		fromAddress,
 		subject,
 		"",
 		to,
@@ -44,8 +79,15 @@ func (s *EmailService) sendWithMailgun(to, subject, body string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
-	_, _, err := mg.Send(ctx, message)
-	return err
+	resp, id, err := mg.Send(ctx, message)
+
+	if err != nil {
+		fmt.Printf("❌ Erreur envoi à %s: %v\n", to, err)
+		return err
+	}
+
+	fmt.Printf("✅ Email envoyé depuis %s → %s (ID: %s, Response: %s)\n", randomEmail, to, id, resp)
+	return nil
 }
 
 func (s *EmailService) sendWithSMTP(to, subject, body string) error {
@@ -76,6 +118,14 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 	sent := 0
 	failed := 0
 
+	// 1. Créer le contenu d'email une seule fois
+	contentID, err := database.InsertEmailContent(req.Subject, req.Body)
+	if err != nil {
+		fmt.Printf("❌ Erreur création contenu: %v\n", err)
+		return
+	}
+	fmt.Printf("📝 Contenu d'email créé (ID: %d)\n", contentID)
+
 	concurrency := 10
 	if config.AppConfig.Provider == "mailgun" {
 		concurrency = 50
@@ -89,14 +139,63 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 		go func(index int, data models.EmailData) {
 			defer func() { <-semaphore }()
 
+			// 2. Insérer/récupérer le recipient
+			recipientID, err := database.InsertOrGetRecipient(
+				data.Email,
+				data.Name,
+				data.Company,
+				data.City,
+			)
+			if err != nil {
+				fmt.Printf("❌ Erreur recipient: %v\n", err)
+				failed++
+				broadcast <- models.ProgressUpdate{
+					Current:    index + 1,
+					Total:      total,
+					Sent:       sent,
+					Failed:     failed,
+					Percentage: float64(index+1) / float64(total) * 100,
+				}
+				return
+			}
+
+			// 3. Générer un sender aléatoire
+			randomEmail := generateRandomEmail()
+			senderID, err := database.InsertOrGetSender(randomEmail, "Admirateur Secret")
+			if err != nil {
+				fmt.Printf("❌ Erreur sender: %v\n", err)
+				failed++
+				broadcast <- models.ProgressUpdate{
+					Current:    index + 1,
+					Total:      total,
+					Sent:       sent,
+					Failed:     failed,
+					Percentage: float64(index+1) / float64(total) * 100,
+				}
+				return
+			}
+
+			// 4. Personnaliser le body
 			body := s.personalizeBody(req.Body, data)
 
+			// 5. Envoyer l'email
+			status := "sent"
+			errorMessage := ""
+
 			if err := s.SendEmail(data.Email, req.Subject, body); err != nil {
+				status = "failed"
+				errorMessage = err.Error()
 				failed++
 			} else {
 				sent++
 			}
 
+			// 6. Enregistrer dans la DB
+			if err := database.InsertEmailSend(contentID, senderID, recipientID, status, errorMessage); err != nil {
+				fmt.Printf("❌ Erreur enregistrement DB: %v\n", err)
+			}
+
+			// 7. Broadcaster la progression
 			broadcast <- models.ProgressUpdate{
 				Current:    index + 1,
 				Total:      total,
@@ -117,7 +216,7 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 		semaphore <- struct{}{}
 	}
 
-	fmt.Printf("Completed! Total: %d | Sent: %d | Failed: %d\n", total, sent, failed)
+	fmt.Printf("\n🎉 Terminé! Total: %d | Envoyés: %d | Échoués: %d\n", total, sent, failed)
 }
 
 func (s *EmailService) personalizeBody(body string, data models.EmailData) string {

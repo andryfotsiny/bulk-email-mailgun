@@ -8,10 +8,10 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
-            background: #f5f5f5;
+
             padding: 20px;
         }
-        .container { max-width: 900px; margin: 0 auto; }
+        .container { max-width: 1200px; margin: 0 auto; }
         h1 { margin-bottom: 30px; font-size: 24px; }
         .card {
             background: white;
@@ -21,28 +21,29 @@
         }
         h2 { font-size: 18px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
 
-        .provider-tabs {
+        .tabs {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
         }
-        .provider-tab {
-            flex: 1;
-            padding: 15px;
-            border: 1px solid #ccc;
-            background: #f9f9f9;
+        .tab {
+            padding: 10px 20px;
             cursor: pointer;
-            text-align: center;
+            border: none;
+            background: none;
+            font-size: 14px;
+            border-bottom: 3px solid transparent;
+            color: #333333;
         }
-        .provider-tab:hover { background: #e9e9e9; }
-        .provider-tab.active {
-            background: #333;
-            color: white;
-            border-color: #333;
+        .tab:hover { background: #f0f0f0; }
+        .tab.active {
+            border-bottom-color: #333;
+            font-weight: bold;
         }
 
-        .config-section { display: none; }
-        .config-section.active { display: block; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
         .form-group { margin-bottom: 12px; }
         label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; }
@@ -92,18 +93,28 @@
             font-size: 12px;
         }
 
-        .stats {
+        .stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
         }
         .stat-box {
-            border: 1px solid #ccc;
+            border: 1px solid #ddd;
             padding: 15px;
             text-align: center;
+            background: #fafafa;
         }
-        .stat-box h3 { font-size: 24px; margin-bottom: 5px; }
-        .stat-box p { font-size: 12px; color: #666; }
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
 
         #progressContainer { display: none; }
         #progressContainer.active { display: block; }
@@ -116,107 +127,176 @@
         .alert-success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
         .alert-error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
         .alert-info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f5f5f5;
+            font-weight: bold;
+        }
+        tr:hover { background: #fafafa; }
+        .status-sent { color: green; font-weight: bold; }
+        .status-failed { color: red; font-weight: bold; }
+
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>Envoi d’emails en masse</h1>
+    <h1>Envoi d'emails en masse</h1>
 
-    <div class="card">
-        <h2>Fournisseur d’email</h2>
-        <div class="provider-tabs">
-            <div class="provider-tab" onclick="selectProvider('gmail')">
-                <strong>Gmail</strong><br>
-                <small>500/jour</small>
-            </div>
-            <div class="provider-tab active" onclick="selectProvider('mailgun')">
-                <strong>Mailgun</strong><br>
-            </div>
-        </div>
-
-        <div id="gmailConfig" class="config-section">
-            <div class="form-group">
-                <label>Serveur SMTP</label>
-                <input type="text" id="gmailServer" value="smtp.gmail.com">
-            </div>
-            <div class="form-group">
-                <label>Port</label>
-                <input type="number" id="gmailPort" value="465">
-            </div>
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="gmailEmail">
-            </div>
-            <div class="form-group">
-                <label>Mot de passe d’application</label>
-                <input type="password" id="gmailPassword">
-                <small>Utilisez un mot de passe d’application Gmail (16 caractères)</small>
-            </div>
-        </div>
-
-        <div id="mailgunConfig" class="config-section active">
-            <div class="alert alert-info">
-                Obtenez vos identifiants sur mailgun.com – inscrivez-vous et récupérez la clé API dans les paramètres.
-            </div>
-            <div class="form-group">
-                <label>Domaine Mailgun</label>
-                <input type="text" id="mailgunDomain" placeholder="mg.votredomaine.com">
-                <small>Exemple : sandboxXXXXX.mailgun.org</small>
-            </div>
-            <div class="form-group">
-                <label>Clé API Mailgun</label>
-                <input type="password" id="mailgunApiKey" placeholder="key-XXXXXXXX">
-            </div>
-            <div class="form-group">
-                <label>Email de l’expéditeur</label>
-                <input type="email" id="mailgunEmail" placeholder="noreply@votredomaine.com">
-            </div>
-        </div>
-
-        <button onclick="saveConfig()">Enregistrer la configuration</button>
-        <div id="configAlert"></div>
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('send')">Envoi</button>
+        <button class="tab" onclick="switchTab('stats')">Statistiques</button>
+        <button class="tab" onclick="switchTab('history')">Historique</button>
+        <button class="tab" onclick="switchTab('recipients')">Destinataires</button>
     </div>
 
-    <div class="card">
-        <h2>Importer un fichier CSV</h2>
-        <div class="file-upload" onclick="document.getElementById('fileInput').click()">
-            <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleUpload(event)">
-            <p><strong>Cliquez pour sélectionner un fichier CSV</strong></p>
-            <small>Format : email,nom,entreprise,ville</small>
+    <!-- TAB ENVOI -->
+    <div id="tab-send" class="tab-content active">
+        <div class="card">
+            <h2>Importer un fichier CSV</h2>
+            <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleUpload(event)">
+                <p><strong>Cliquez pour sélectionner un fichier CSV</strong></p>
+                <small>Format : email,nom,entreprise,ville</small>
+            </div>
+            <div id="fileInfo"></div>
         </div>
-        <div id="fileInfo"></div>
+
+        <div class="card">
+            <h2>Contenu de l'email</h2>
+            <div class="form-group">
+                <label>Objet</label>
+                <input type="text" id="subject" placeholder="Objet de l'email">
+            </div>
+            <div class="form-group">
+                <label>Corps du message</label>
+                <textarea id="body" placeholder="Bonjour {{name}},&#10;&#10;Votre message ici...&#10;&#10;Variables : {{name}}, {{company}}, {{city}}, {{email}}"></textarea>
+            </div>
+            <button id="sendBtn" onclick="startSending()" disabled>Envoyer les emails</button>
+        </div>
+
+        <div class="card" id="progressContainer">
+            <h2>Progression</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-number" id="statTotal">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statSent">0</div>
+                    <div class="stat-label">Envoyés</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statFailed">0</div>
+                    <div class="stat-label">Échoués</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statCurrent">0</div>
+                    <div class="stat-label">En cours</div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="card">
-        <h2>Contenu de l’email</h2>
-        <div class="form-group">
-            <label>Objet</label>
-            <input type="text" id="subject" placeholder="Objet de l’email">
+    <!-- TAB STATISTIQUES -->
+    <div id="tab-stats" class="tab-content">
+        <div class="card">
+            <h2>Statistiques globales</h2>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-number" id="statsTotal">0</div>
+                    <div class="stat-label">Total envois</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statsSent">0</div>
+                    <div class="stat-label">Envoyés</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statsFailed">0</div>
+                    <div class="stat-label">Échoués</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statsRecipients">0</div>
+                    <div class="stat-label">Destinataires</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statsSenders">0</div>
+                    <div class="stat-label">Expéditeurs</div>
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label>Corps du message</label>
-            <textarea id="body" placeholder="Bonjour {{name}},&#10;&#10;Votre message ici...&#10;&#10;Variables : {{name}}, {{company}}, {{city}}, {{email}}"></textarea>
-        </div>
-        <button id="sendBtn" onclick="startSending()" disabled>Envoyer les emails</button>
     </div>
 
-    <div class="card" id="progressContainer">
-        <h2>Progression</h2>
-        <div class="progress-bar">
-            <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+    <!-- TAB HISTORIQUE -->
+    <div id="tab-history" class="tab-content">
+        <div class="card">
+            <h2>Historique des envois</h2>
+            <button onclick="loadHistory()" style="margin-bottom: 15px;">Actualiser</button>
+            <div class="table-container">
+                <table id="historyTable">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>De</th>
+                        <th>À</th>
+                        <th>Nom</th>
+                        <th>Sujet</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                    </thead>
+                    <tbody id="historyBody">
+                    <tr><td colspan="7" style="text-align:center;">Chargement...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="stats">
-            <div class="stat-box"><h3 id="statTotal">0</h3><p>Total</p></div>
-            <div class="stat-box"><h3 id="statSent">0</h3><p>Envoyés</p></div>
-            <div class="stat-box"><h3 id="statFailed">0</h3><p>Échoués</p></div>
-            <div class="stat-box"><h3 id="statCurrent">0</h3><p>En cours</p></div>
+    </div>
+
+    <!-- TAB DESTINATAIRES -->
+    <div id="tab-recipients" class="tab-content">
+        <div class="card">
+            <h2>Liste des destinataires</h2>
+            <button onclick="loadRecipients()" style="margin-bottom: 15px;">Actualiser</button>
+            <div class="table-container">
+                <table id="recipientsTable">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Email</th>
+                        <th>Nom</th>
+                        <th>Entreprise</th>
+                        <th>Ville</th>
+                        <th>Date ajout</th>
+                    </tr>
+                    </thead>
+                    <tbody id="recipientsBody">
+                    <tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
     let allEmailsData = [];
-    let currentProvider = 'mailgun';
     let ws;
 
     function connectWebSocket() {
@@ -231,84 +311,16 @@
     }
     connectWebSocket();
 
-    window.addEventListener('DOMContentLoaded', () => {
-        fetch('/api/config')
-            .then(r => r.json())
-            .then(data => {
-                if (data.provider) {
-                    selectProvider(data.provider, true);
-                }
-                if (data.smtp_server) document.getElementById('gmailServer').value = data.smtp_server;
-                if (data.smtp_port) document.getElementById('gmailPort').value = data.smtp_port;
-                if (data.email) {
-                    document.getElementById('gmailEmail').value = data.email;
-                    document.getElementById('mailgunEmail').value = data.email;
-                }
-                if (data.mailgun_domain) document.getElementById('mailgunDomain').value = data.mailgun_domain;
-            });
-    });
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-    function selectProvider(provider, skipEvent) {
-        currentProvider = provider;
+        event.target.classList.add('active');
+        document.getElementById('tab-' + tabName).classList.add('active');
 
-        document.querySelectorAll('.provider-tab').forEach(el => {
-            el.classList.remove('active');
-        });
-
-        if (!skipEvent) {
-            event.currentTarget.classList.add('active');
-        } else {
-            document.querySelector(`.provider-tab:nth-child(${provider === 'gmail' ? 1 : 2})`).classList.add('active');
-        }
-
-        document.getElementById('gmailConfig').classList.remove('active');
-        document.getElementById('mailgunConfig').classList.remove('active');
-
-        if (provider === 'gmail') {
-            document.getElementById('gmailConfig').classList.add('active');
-        } else {
-            document.getElementById('mailgunConfig').classList.add('active');
-        }
-    }
-
-    function saveConfig() {
-        let config = { provider: currentProvider };
-
-        if (currentProvider === 'gmail') {
-            config.smtp_server = document.getElementById('gmailServer').value;
-            config.smtp_port = parseInt(document.getElementById('gmailPort').value);
-            config.email = document.getElementById('gmailEmail').value;
-            config.password = document.getElementById('gmailPassword').value;
-
-            if (!config.email || !config.password) {
-                showAlert('configAlert', 'Veuillez remplir tous les champs Gmail', 'error');
-                return;
-            }
-        } else {
-            config.mailgun_domain = document.getElementById('mailgunDomain').value;
-            config.mailgun_api_key = document.getElementById('mailgunApiKey').value;
-            config.email = document.getElementById('mailgunEmail').value;
-
-            if (!config.mailgun_domain || !config.mailgun_api_key || !config.email) {
-                showAlert('configAlert', 'Veuillez remplir tous les champs Mailgun', 'error');
-                return;
-            }
-        }
-
-        fetch('/api/config', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(config)
-        })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert('configAlert', 'Configuration enregistrée', 'success');
-                } else {
-                    showAlert('configAlert', data.error, 'error');
-                }
-            })
-            .catch(err => showAlert('configAlert', 'Erreur : ' + err.message, 'error'));
+        if (tabName === 'stats') loadStats();
+        if (tabName === 'history') loadHistory();
+        if (tabName === 'recipients') loadRecipients();
     }
 
     function handleUpload(event) {
@@ -328,23 +340,25 @@
             .then(data => {
                 if (data.success) {
                     allEmailsData = data.emails;
+                    let message = data.count + ' emails chargés';
+                    if (data.message) message += '<br>' + data.message;
                     document.getElementById('fileInfo').innerHTML =
-                        `<div class="alert alert-success">${data.count} emails chargés</div>`;
+                        '<div class="alert alert-success">' + message + '</div>';
                     document.getElementById('sendBtn').disabled = false;
                 } else {
                     document.getElementById('fileInfo').innerHTML =
-                        `<div class="alert alert-error">${data.error}</div>`;
+                        '<div class="alert alert-error">' + data.error + '</div>';
                 }
             })
             .catch(err => {
                 document.getElementById('fileInfo').innerHTML =
-                    `<div class="alert alert-error">Erreur : ${err.message}</div>`;
+                    '<div class="alert alert-error">Erreur : ' + err.message + '</div>';
             });
     }
 
     function startSending() {
         if (!allEmailsData.length) {
-            alert('Veuillez d’abord charger un fichier CSV');
+            alert('Veuillez d\'abord charger un fichier CSV');
             return;
         }
 
@@ -352,12 +366,11 @@
         const body = document.getElementById('body').value;
 
         if (!subject || !body) {
-            alert('Veuillez remplir l’objet et le corps du message');
+            alert('Veuillez remplir l\'objet et le corps du message');
             return;
         }
 
-        const provider = currentProvider === 'mailgun' ? 'Mailgun' : 'Gmail';
-        if (!confirm(`Envoyer ${allEmailsData.length} emails via ${provider} ?`)) return;
+        if (!confirm('Envoyer ' + allEmailsData.length + ' emails ?')) return;
 
         document.getElementById('progressContainer').classList.add('active');
         document.getElementById('sendBtn').disabled = true;
@@ -397,19 +410,92 @@
 
         if (data.current === data.total) {
             setTimeout(() => {
-                alert(`Terminé\n\nTotal : ${data.total}\nEnvoyés : ${data.sent}\nÉchoués : ${data.failed}`);
+                alert('Terminé\n\nTotal : ' + data.total + '\nEnvoyés : ' + data.sent + '\nÉchoués : ' + data.failed);
                 document.getElementById('sendBtn').disabled = false;
             }, 1000);
         }
     }
 
-    function showAlert(elementId, message, type) {
-        const alertClass = 'alert-' + type;
-        document.getElementById(elementId).innerHTML =
-            `<div class="alert ${alertClass}">${message}</div>`;
-        setTimeout(() => {
-            document.getElementById(elementId).innerHTML = '';
-        }, 5000);
+    function loadStats() {
+        fetch('/api/stats')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('statsTotal').textContent = data.stats.total_sends || 0;
+                    document.getElementById('statsSent').textContent = data.stats.sent || 0;
+                    document.getElementById('statsFailed').textContent = data.stats.failed || 0;
+                    document.getElementById('statsRecipients').textContent = data.stats.total_recipients || 0;
+                    document.getElementById('statsSenders').textContent = data.stats.total_senders || 0;
+                }
+            });
+    }
+
+    function loadHistory() {
+        document.getElementById('historyBody').innerHTML = '<tr><td colspan="7" style="text-align:center;">Chargement...</td></tr>';
+
+        fetch('/api/history')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const tbody = document.getElementById('historyBody');
+                    if (data.history.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Aucun envoi</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = '';
+                    data.history.forEach(h => {
+                        const row = document.createElement('tr');
+                        const statusClass = h.status === 'sent' ? 'status-sent' : 'status-failed';
+                        row.innerHTML = `
+                            <td>${h.id}</td>
+                            <td>${h.sender_email}</td>
+                            <td>${h.recipient_email}</td>
+                            <td>${h.recipient_name || ''}</td>
+                            <td>${h.subject}</td>
+                            <td class="${statusClass}">${h.status}</td>
+                            <td>${new Date(h.sent_at).toLocaleString()}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            })
+            .catch(err => {
+                document.getElementById('historyBody').innerHTML = '<tr><td colspan="7" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
+            });
+    }
+
+    function loadRecipients() {
+        document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>';
+
+        fetch('/api/recipients')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const tbody = document.getElementById('recipientsBody');
+                    if (data.recipients.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucun destinataire</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = '';
+                    data.recipients.forEach(r => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${r.ID}</td>
+                            <td>${r.Email}</td>
+                            <td>${r.Name || ''}</td>
+                            <td>${r.Company || ''}</td>
+                            <td>${r.City || ''}</td>
+                            <td>${new Date(r.CreatedAt).toLocaleString()}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            })
+            .catch(err => {
+                document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
+            });
     }
 </script>
 </body>

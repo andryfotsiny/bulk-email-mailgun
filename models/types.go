@@ -36,6 +36,7 @@ type UploadResponse struct {
 	Count   int         `json:"count,omitempty"`
 	Emails  []EmailData `json:"emails,omitempty"`
 	Error   string      `json:"error,omitempty"`
+	Message string      `json:"message,omitempty"`
 }
 
 type ConfigResponse struct {
