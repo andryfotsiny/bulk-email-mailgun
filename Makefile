@@ -15,33 +15,33 @@ install: ## Installation complète
 	@echo "📦 Installation..."
 	@mkdir -p nginx/logs certbot/conf certbot/www backups
 	@chmod +x setup-ssl.sh
-	docker compose build
-	docker compose up -d
+	docker-compose build
+	docker-compose up -d
 	@echo " Installation terminée!"
 	@echo " Accès: http://localhost:8080"
 
 start: ## Démarrer
 	@echo " Démarrage..."
-	docker compose up -d
+	docker-compose up -d
 	@echo "Application démarrée sur http://localhost"
 
 stop: ## Arrêter
 	@echo " Arrêt..."
-	docker compose down
+	docker-compose down
 
 restart: stop start ## Redémarrer
 
 logs: ## Voir les logs
-	docker compose logs -f
+	docker-compose logs -f
 
 logs-app: ## Logs de l'app Go uniquement
-	docker compose logs -f bulk-email-app
+	docker-compose logs -f bulk-email-app
 
 logs-nginx: ## Logs de Nginx uniquement
-	docker compose logs -f nginx
+	docker-compose logs -f nginx
 
 status: ## Statut des containers
-	docker compose ps
+	docker-compose ps
 
 backup: ## Sauvegarder la base de données
 	@echo " Sauvegarde..."
@@ -51,14 +51,14 @@ backup: ## Sauvegarder la base de données
 
 clean: ## Nettoyer tout
 	@echo " Nettoyage..."
-	docker compose down -v
+	docker-compose down -v
 	docker system prune -f
 	@echo " Nettoyage terminé"
 
 rebuild: clean install ## Tout reconstruire
 
 shell: ## Ouvrir un shell dans l'app
-	docker compose exec bulk-email-app /bin/sh
+	docker-compose exec bulk-email-app /bin/sh
 
 ssl: ## Configurer SSL (Usage: make ssl DOMAIN=example.com EMAIL=you@email.com)
 	@if [ -z "$(DOMAIN)" ] || [ -z "$(EMAIL)" ]; then \
