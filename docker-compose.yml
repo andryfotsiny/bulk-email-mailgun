@@ -7,8 +7,19 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: bulk-email-app
-    env_file:
-      - .env
+    environment:
+      # Choix du provider (mailgun ou gmail)
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER}
+
+      # Configuration Mailgun
+      - MAILGUN_DOMAIN=${MAILGUN_DOMAIN}
+      - MAILGUN_API_KEY=${MAILGUN_API_KEY}
+
+      # Configuration Gmail
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - SENDER_PASSWORD=${SENDER_PASSWORD}
     volumes:
       # Persister la base de données SQLite
       - ./emails.db:/app/emails.db
@@ -32,7 +43,7 @@ services:
         max-file: "3"
 
   # Nginx Reverse Proxy
-  nginx:
+  bulk-email-nginx:
     image: nginx:alpine
     container_name: bulk-email-nginx
     ports:
@@ -42,8 +53,6 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       # Logs Nginx
       - ./nginx/logs:/var/log/nginx
-      # SSL (optionnel)
-      # - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - bulk-email-app
     restart: unless-stopped
