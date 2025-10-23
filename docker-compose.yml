@@ -1,18 +1,15 @@
 version: '3.8'
 
 services:
-  # Application Go
   bulk-email-app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: bulk-email-app
     env_file:
-      - .env               # <--- charge toutes les variables depuis .env
+      - .env
     volumes:
-      # Persister la base de données SQLite
       - ./emails.db:/app/emails.db
-      # Persister les données CSV
       - ./data:/app/data
     restart: unless-stopped
     networks:
