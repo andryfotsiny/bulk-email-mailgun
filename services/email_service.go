@@ -114,6 +114,12 @@ func (s *EmailService) sendWithSMTP(to, subject, body string) error {
 
 	if config.AppConfig.SMTPPort == 465 {
 		d.SSL = true
+	} else if config.AppConfig.SMTPPort == 587 {
+		d.SSL = false
+		d.TLSConfig = &tls.Config{
+			InsecureSkipVerify: false,
+			ServerName:         config.AppConfig.SMTPServer,
+		}
 	}
 
 	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
