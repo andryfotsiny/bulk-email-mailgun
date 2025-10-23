@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/mailgun/mailgun-go/v4"
@@ -20,7 +21,7 @@ func NewEmailService() *EmailService {
 	return &EmailService{}
 }
 
-// generateRandomEmail génère un email aléatoire
+// generateRandomEmail génère un email aléatoire pour Mailgun
 func generateRandomEmail() string {
 	rand.Seed(time.Now().UnixNano())
 
@@ -49,22 +50,26 @@ func generateRandomEmail() string {
 	return fmt.Sprintf("%s.%s@%s", randomName, randomSuffix, config.AppConfig.MailgunDomain)
 }
 
-func (s *EmailService) SendEmail(to, subject, body string) error {
-	if config.AppConfig.Provider == "mailgun" {
-		return s.sendWithMailgun(to, subject, body)
+// SendEmailWithProvider envoie un email via le provider choisi
+func (s *EmailService) SendEmailWithProvider(to, subject, body, provider string) (string, error) {
+	if provider == "mailgun" {
+		senderEmail, err := s.sendWithMailgun(to, subject, body)
+		return senderEmail, err
 	}
-	return s.sendWithSMTP(to, subject, body)
+	// Gmail par défaut
+	return config.AppConfig.Email, s.sendWithSMTP(to, subject, body)
 }
 
-func (s *EmailService) sendWithMailgun(to, subject, body string) error {
+func (s *EmailService) sendWithMailgun(to, subject, body string) (string, error) {
 	if config.AppConfig.MailgunDomain == "" || config.AppConfig.MailgunAPIKey == "" {
-		return fmt.Errorf("mailgun not configured")
+		return "", fmt.Errorf("mailgun not configured")
 	}
 
 	mg := mailgun.NewMailgun(config.AppConfig.MailgunDomain, config.AppConfig.MailgunAPIKey)
 
+	// Générer un email aléatoire
 	randomEmail := generateRandomEmail()
-	displayName := "Admirateur Secret "
+	displayName := "Admirateur Secret"
 	fromAddress := fmt.Sprintf("%s <%s>", displayName, randomEmail)
 
 	message := mg.NewMessage(
@@ -81,15 +86,19 @@ func (s *EmailService) sendWithMailgun(to, subject, body string) error {
 	resp, id, err := mg.Send(ctx, message)
 
 	if err != nil {
-		fmt.Printf("❌ Erreur envoi à %s: %v\n", to, err)
-		return err
+		fmt.Printf("❌ Erreur envoi Mailgun à %s: %v\n", to, err)
+		return randomEmail, err
 	}
 
-	fmt.Printf("Email envoyé depuis %s → %s (ID: %s, Response: %s)\n", randomEmail, to, id, resp)
-	return nil
+	fmt.Printf("✅ Email envoyé via Mailgun depuis %s → %s (ID: %s, Response: %s)\n", randomEmail, to, id, resp)
+	return randomEmail, nil
 }
 
 func (s *EmailService) sendWithSMTP(to, subject, body string) error {
+	if config.AppConfig.Email == "" || config.AppConfig.Password == "" {
+		return fmt.Errorf("gmail not configured")
+	}
+
 	m := gomail.NewMessage()
 	m.SetHeader("From", config.AppConfig.Email)
 	m.SetHeader("To", to)
@@ -109,7 +118,14 @@ func (s *EmailService) sendWithSMTP(to, subject, body string) error {
 
 	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 
-	return d.DialAndSend(m)
+	err := d.DialAndSend(m)
+	if err != nil {
+		fmt.Printf("❌ Erreur envoi Gmail à %s: %v\n", to, err)
+		return err
+	}
+
+	fmt.Printf("✅ Email envoyé via Gmail depuis %s → %s\n", config.AppConfig.Email, to)
+	return nil
 }
 
 func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- models.ProgressUpdate) {
@@ -117,16 +133,24 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 	sent := 0
 	failed := 0
 
+	// Déterminer le provider (mailgun par défaut)
+	provider := req.Provider
+	if provider == "" {
+		provider = "mailgun"
+	}
+
+	fmt.Printf("📧 Provider sélectionné: %s\n", provider)
+
 	// 1. Créer le contenu d'email une seule fois
 	contentID, err := database.InsertEmailContent(req.Subject, req.Body)
 	if err != nil {
 		fmt.Printf("❌ Erreur création contenu: %v\n", err)
 		return
 	}
-	fmt.Printf("Contenu d'email créé (ID: %d)\n", contentID)
+	fmt.Printf("📝 Contenu d'email créé (ID: %d)\n", contentID)
 
 	concurrency := 10
-	if config.AppConfig.Provider == "mailgun" {
+	if provider == "mailgun" {
 		concurrency = 50
 	}
 
@@ -153,8 +177,19 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				return
 			}
 
-			randomEmail := generateRandomEmail()
-			senderID, err := database.InsertOrGetSender(randomEmail, "Admirateur Secret")
+			// 3. Personnaliser le body (seulement {{email}})
+			body := strings.ReplaceAll(req.Body, "{{email}}", data.Email)
+
+			// 4. Envoyer l'email via le provider choisi
+			senderEmail, sendErr := s.SendEmailWithProvider(data.Email, req.Subject, body, provider)
+
+			// 5. Insérer/récupérer le sender
+			displayName := "Expéditeur"
+			if provider == "mailgun" {
+				displayName = "Admirateur Secret"
+			}
+
+			senderID, err := database.InsertOrGetSender(senderEmail, displayName)
 			if err != nil {
 				fmt.Printf("❌ Erreur sender: %v\n", err)
 				failed++
@@ -168,23 +203,24 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				return
 			}
 
+			// 6. Déterminer le status
 			status := "sent"
 			errorMessage := ""
 
-			if err := s.SendEmail(data.Email, req.Subject, req.Body); err != nil {
+			if sendErr != nil {
 				status = "failed"
-				errorMessage = err.Error()
+				errorMessage = sendErr.Error()
 				failed++
 			} else {
 				sent++
 			}
 
-			// 6. Enregistrer dans la DB
+			// 7. Enregistrer dans la DB
 			if err := database.InsertEmailSend(contentID, senderID, recipientID, status, errorMessage); err != nil {
 				fmt.Printf("❌ Erreur enregistrement DB: %v\n", err)
 			}
 
-			// 7. Broadcaster la progression
+			// 8. Broadcaster la progression
 			broadcast <- models.ProgressUpdate{
 				Current:    index + 1,
 				Total:      total,
@@ -193,17 +229,24 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				Percentage: float64(index+1) / float64(total) * 100,
 			}
 
+			// 9. Délai entre les envois
 			delay := 500 * time.Millisecond
-			if config.AppConfig.Provider == "mailgun" {
+			if provider == "mailgun" {
 				delay = 100 * time.Millisecond
 			}
 			time.Sleep(delay)
 		}(i, emailData)
 	}
 
+	// Attendre que tous les envois soient terminés
 	for i := 0; i < cap(semaphore); i++ {
 		semaphore <- struct{}{}
 	}
 
-	fmt.Printf("\n Terminé! Total: %d | Envoyés: %d | Échoués: %d\n", total, sent, failed)
+	fmt.Printf("\n🎉 Terminé! Total: %d | Envoyés: %d | Échoués: %d\n", total, sent, failed)
+}
+
+func (s *EmailService) personalizeBody(body string, data models.EmailData) string {
+	body = strings.ReplaceAll(body, "{{email}}", data.Email)
+	return body
 }

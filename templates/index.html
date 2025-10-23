@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AxSender - Envoi d'emails en masse</title>
+    <title>Envoi d'emails en masse</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -31,7 +31,6 @@
             font-size: 13px;
             text-decoration: none;
         }
-
         .card {
             background: white;
             border: 1px solid #ddd;
@@ -47,13 +46,13 @@
             border-bottom: 2px solid #ddd;
         }
         .tab {
+            color: #333333;
             padding: 10px 20px;
             cursor: pointer;
             border: none;
             background: none;
             font-size: 14px;
             border-bottom: 3px solid transparent;
-            color: #333333;
         }
         .tab:hover { background: #f0f0f0; }
         .tab.active {
@@ -188,11 +187,23 @@
     <!-- TAB ENVOI -->
     <div id="tab-send" class="tab-content active">
         <div class="card">
+            <h2>Configuration de l'envoi</h2>
+            <div class="form-group">
+                <label>Provider d'envoi</label>
+                <select id="provider" style="padding: 8px; font-size: 14px;">
+                    <option value="mailgun" selected>Mailgun (emails aléatoires)</option>
+                    <option value="gmail">Gmail</option>
+                </select>
+                <small>Mailgun génère des emails aléatoires. Gmail utilise votre compte configuré.</small>
+            </div>
+        </div>
+
+        <div class="card">
             <h2>Importer un fichier CSV</h2>
             <div class="file-upload" onclick="document.getElementById('fileInput').click()">
                 <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleUpload(event)">
                 <p><strong>Cliquez pour sélectionner un fichier CSV</strong></p>
-                <small>Format : une adresse email par ligne (ou email en première colonne)</small>
+                <small>Format : email (un email par ligne)</small>
             </div>
             <div id="fileInfo"></div>
         </div>
@@ -205,7 +216,7 @@
             </div>
             <div class="form-group">
                 <label>Corps du message</label>
-                <textarea id="body" placeholder="Bonjour ..."></textarea>
+                <textarea id="body" placeholder="Bonjour {{name}},&#10;&#10;Votre message ici...&#10;&#10;Variables : {{name}}, {{company}}, {{city}}, {{email}}"></textarea>
             </div>
             <button id="sendBtn" onclick="startSending()" disabled>Envoyer les emails</button>
         </div>
@@ -277,13 +288,14 @@
                         <th>ID</th>
                         <th>De</th>
                         <th>À</th>
+                        <th>Nom</th>
                         <th>Sujet</th>
                         <th>Status</th>
                         <th>Date</th>
                     </tr>
                     </thead>
                     <tbody id="historyBody">
-                    <tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>
+                    <tr><td colspan="7" style="text-align:center;">Chargement...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -301,11 +313,14 @@
                     <tr>
                         <th>ID</th>
                         <th>Email</th>
+                        <th>Nom</th>
+                        <th>Entreprise</th>
+                        <th>Ville</th>
                         <th>Date ajout</th>
                     </tr>
                     </thead>
                     <tbody id="recipientsBody">
-                    <tr><td colspan="3" style="text-align:center;">Chargement...</td></tr>
+                    <tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -382,13 +397,15 @@
 
         const subject = document.getElementById('subject').value;
         const body = document.getElementById('body').value;
+        const provider = document.getElementById('provider').value;
 
         if (!subject || !body) {
             alert('Veuillez remplir l\'objet et le corps du message');
             return;
         }
 
-        if (!confirm('Envoyer ' + allEmailsData.length + ' emails ?')) return;
+        const providerName = provider === 'mailgun' ? 'Mailgun' : 'Gmail';
+        if (!confirm('Envoyer ' + allEmailsData.length + ' emails via ' + providerName + ' ?')) return;
 
         document.getElementById('progressContainer').classList.add('active');
         document.getElementById('sendBtn').disabled = true;
@@ -399,7 +416,8 @@
             body: JSON.stringify({
                 emails: allEmailsData,
                 subject: subject,
-                body: body
+                body: body,
+                provider: provider
             })
         })
             .then(r => r.json())
@@ -449,7 +467,7 @@
     }
 
     function loadHistory() {
-        document.getElementById('historyBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>';
+        document.getElementById('historyBody').innerHTML = '<tr><td colspan="7" style="text-align:center;">Chargement...</td></tr>';
 
         fetch('/api/history')
             .then(r => r.json())
@@ -457,7 +475,7 @@
                 if (data.success) {
                     const tbody = document.getElementById('historyBody');
                     if (data.history.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucun envoi</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Aucun envoi</td></tr>';
                         return;
                     }
 
@@ -469,6 +487,7 @@
                             <td>${h.id}</td>
                             <td>${h.sender_email}</td>
                             <td>${h.recipient_email}</td>
+                            <td>${h.recipient_name || ''}</td>
                             <td>${h.subject}</td>
                             <td class="${statusClass}">${h.status}</td>
                             <td>${new Date(h.sent_at).toLocaleString()}</td>
@@ -478,12 +497,12 @@
                 }
             })
             .catch(err => {
-                document.getElementById('historyBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
+                document.getElementById('historyBody').innerHTML = '<tr><td colspan="7" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
             });
     }
 
     function loadRecipients() {
-        document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="3" style="text-align:center;">Chargement...</td></tr>';
+        document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Chargement...</td></tr>';
 
         fetch('/api/recipients')
             .then(r => r.json())
@@ -491,7 +510,7 @@
                 if (data.success) {
                     const tbody = document.getElementById('recipientsBody');
                     if (data.recipients.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Aucun destinataire</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Aucun destinataire</td></tr>';
                         return;
                     }
 
@@ -501,6 +520,9 @@
                         row.innerHTML = `
                             <td>${r.ID}</td>
                             <td>${r.Email}</td>
+                            <td>${r.Name || ''}</td>
+                            <td>${r.Company || ''}</td>
+                            <td>${r.City || ''}</td>
                             <td>${new Date(r.CreatedAt).toLocaleString()}</td>
                         `;
                         tbody.appendChild(row);
@@ -508,7 +530,7 @@
                 }
             })
             .catch(err => {
-                document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="3" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
+                document.getElementById('recipientsBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Erreur : ' + err.message + '</td></tr>';
             });
     }
 </script>

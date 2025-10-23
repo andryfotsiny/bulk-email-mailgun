@@ -131,20 +131,15 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	for i, record := range records {
 		if i == 0 {
-			continue // Skip header
+			continue
 		}
 		if len(record) >= 1 {
-			emailAddr := strings.TrimSpace(record[0])
-			if emailAddr == "" {
-				continue
-			}
-
 			email := models.EmailData{
-				Email: emailAddr,
+				Email: strings.TrimSpace(record[0]),
 			}
 
 			// Insérer dans la DB
-			_, err := database.InsertOrGetRecipient(emailAddr)
+			_, err := database.InsertOrGetRecipient(email.Email)
 			if err == nil {
 				insertedCount++
 			}
@@ -164,14 +159,6 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) SendHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if config.AppConfig.MailgunDomain == "" || config.AppConfig.MailgunAPIKey == "" {
-		json.NewEncoder(w).Encode(models.APIResponse{
-			Success: false,
-			Error:   "Mailgun not configured",
-		})
-		return
-	}
-
 	var req models.SendRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		json.NewEncoder(w).Encode(models.APIResponse{
@@ -181,11 +168,36 @@ func (h *Handler) SendHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Déterminer le provider (mailgun par défaut)
+	provider := req.Provider
+	if provider == "" {
+		provider = "mailgun"
+	}
+
+	// Vérifier la configuration selon le provider
+	if provider == "mailgun" {
+		if config.AppConfig.MailgunDomain == "" || config.AppConfig.MailgunAPIKey == "" {
+			json.NewEncoder(w).Encode(models.APIResponse{
+				Success: false,
+				Error:   "Mailgun not configured",
+			})
+			return
+		}
+	} else if provider == "gmail" {
+		if config.AppConfig.Email == "" || config.AppConfig.Password == "" {
+			json.NewEncoder(w).Encode(models.APIResponse{
+				Success: false,
+				Error:   "Gmail not configured",
+			})
+			return
+		}
+	}
+
 	go h.emailService.ProcessEmails(req, h.wsService.GetBroadcastChannel())
 
 	json.NewEncoder(w).Encode(models.APIResponse{
 		Success: true,
-		Message: "Sending started",
+		Message: "Sending started with " + provider,
 	})
 }
 

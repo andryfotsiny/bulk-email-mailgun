@@ -15,9 +15,10 @@ type EmailData struct {
 }
 
 type SendRequest struct {
-	Emails  []EmailData `json:"emails"`
-	Subject string      `json:"subject"`
-	Body    string      `json:"body"`
+	Emails   []EmailData `json:"emails"`
+	Subject  string      `json:"subject"`
+	Body     string      `json:"body"`
+	Provider string      `json:"provider"` // "mailgun" ou "gmail"
 }
 
 type ProgressUpdate struct {
