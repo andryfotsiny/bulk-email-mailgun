@@ -5,14 +5,13 @@ import (
 	"bulk-email-mailgun/database"
 	"bulk-email-mailgun/models"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"strings"
 	"time"
 
 	"github.com/mailgun/mailgun-go/v4"
-	"gopkg.in/gomail.v2"
+	"github.com/resend/resend-go/v2"
 )
 
 type EmailService struct{}
@@ -56,8 +55,10 @@ func (s *EmailService) SendEmailWithProvider(to, subject, body, provider string)
 		senderEmail, err := s.sendWithMailgun(to, subject, body)
 		return senderEmail, err
 	}
-	// Gmail par défaut
-	return config.AppConfig.Email, s.sendWithSMTP(to, subject, body)
+	if provider == "resend" {
+		return config.AppConfig.ResendFromEmail, s.sendWithResend(to, subject, body)
+	}
+	return "", fmt.Errorf("provider inconnu: %s", provider)
 }
 
 func (s *EmailService) sendWithMailgun(to, subject, body string) (string, error) {
@@ -94,43 +95,28 @@ func (s *EmailService) sendWithMailgun(to, subject, body string) (string, error)
 	return randomEmail, nil
 }
 
-func (s *EmailService) sendWithSMTP(to, subject, body string) error {
-	if config.AppConfig.Email == "" || config.AppConfig.Password == "" {
-		return fmt.Errorf("gmail not configured")
+// ✅ NOUVELLE FONCTION : Envoyer avec Resend
+func (s *EmailService) sendWithResend(to, subject, body string) error {
+	if config.AppConfig.ResendAPIKey == "" || config.AppConfig.ResendFromEmail == "" {
+		return fmt.Errorf("resend not configured")
 	}
 
-	m := gomail.NewMessage()
-	m.SetHeader("From", config.AppConfig.Email)
-	m.SetHeader("To", to)
-	m.SetHeader("Subject", subject)
-	m.SetBody("text/html", body)
+	client := resend.NewClient(config.AppConfig.ResendAPIKey)
 
-	d := gomail.NewDialer(
-		config.AppConfig.SMTPServer,
-		config.AppConfig.SMTPPort,
-		config.AppConfig.Email,
-		config.AppConfig.Password,
-	)
-
-	if config.AppConfig.SMTPPort == 465 {
-		d.SSL = true
-	} else if config.AppConfig.SMTPPort == 587 {
-		d.SSL = false
-		d.TLSConfig = &tls.Config{
-			InsecureSkipVerify: false,
-			ServerName:         config.AppConfig.SMTPServer,
-		}
+	params := &resend.SendEmailRequest{
+		From:    config.AppConfig.ResendFromEmail,
+		To:      []string{to},
+		Subject: subject,
+		Html:    body,
 	}
 
-	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-
-	err := d.DialAndSend(m)
+	sent, err := client.Emails.Send(params)
 	if err != nil {
-		fmt.Printf("❌ Erreur envoi Gmail à %s: %v\n", to, err)
+		fmt.Printf("❌ Erreur envoi Resend à %s: %v\n", to, err)
 		return err
 	}
 
-	fmt.Printf("✅ Email envoyé via Gmail depuis %s → %s\n", config.AppConfig.Email, to)
+	fmt.Printf(" Email envoyé via Resend depuis %s → %s (ID: %s)\n", config.AppConfig.ResendFromEmail, to, sent.Id)
 	return nil
 }
 
@@ -139,13 +125,12 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 	sent := 0
 	failed := 0
 
-	// Déterminer le provider (mailgun par défaut)
 	provider := req.Provider
 	if provider == "" {
 		provider = "mailgun"
 	}
 
-	fmt.Printf("📧 Provider sélectionné: %s\n", provider)
+	fmt.Printf("Provider sélectionné: %s\n", provider)
 
 	// 1. Créer le contenu d'email une seule fois
 	contentID, err := database.InsertEmailContent(req.Subject, req.Body)
@@ -153,11 +138,24 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 		fmt.Printf("❌ Erreur création contenu: %v\n", err)
 		return
 	}
-	fmt.Printf("📝 Contenu d'email créé (ID: %d)\n", contentID)
+	fmt.Printf("Contenu d'email créé (ID: %d)\n", contentID)
+
+	// ✅ NOUVEAU : Pour Resend, créer le sender UNE SEULE FOIS
+	var globalSenderID int64
+	if provider == "resend" {
+		displayName := "AxSender"
+		globalSenderID, err = database.InsertOrGetSender(config.AppConfig.ResendFromEmail, displayName)
+		if err != nil {
+			fmt.Printf("❌ Erreur création sender: %v\n", err)
+			return
+		}
+	}
 
 	concurrency := 10
 	if provider == "mailgun" {
 		concurrency = 50
+	} else if provider == "resend" {
+		concurrency = 2 // ✅ Maximum 2 requêtes parallèles pour Resend
 	}
 
 	semaphore := make(chan struct{}, concurrency)
@@ -183,33 +181,40 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				return
 			}
 
-			// 3. Personnaliser le body (seulement {{email}})
+			// 3. Personnaliser le body
 			body := strings.ReplaceAll(req.Body, "{{email}}", data.Email)
 
-			// 4. Envoyer l'email via le provider choisi
-			senderEmail, sendErr := s.SendEmailWithProvider(data.Email, req.Subject, body, provider)
+			// 4. Envoyer l'email
+			var senderEmail string
+			var sendErr error
+			var senderID int64
 
-			// 5. Insérer/récupérer le sender
-			displayName := "Expéditeur"
 			if provider == "mailgun" {
-				displayName = "Admirateur Secret"
-			}
+				senderEmail, sendErr = s.sendWithMailgun(data.Email, req.Subject, body)
 
-			senderID, err := database.InsertOrGetSender(senderEmail, displayName)
-			if err != nil {
-				fmt.Printf("❌ Erreur sender: %v\n", err)
-				failed++
-				broadcast <- models.ProgressUpdate{
-					Current:    index + 1,
-					Total:      total,
-					Sent:       sent,
-					Failed:     failed,
-					Percentage: float64(index+1) / float64(total) * 100,
+				// Pour Mailgun, chaque email a un sender différent
+				displayName := "Admirateur Secret"
+				senderID, err = database.InsertOrGetSender(senderEmail, displayName)
+				if err != nil {
+					fmt.Printf("❌ Erreur sender: %v\n", err)
+					failed++
+					broadcast <- models.ProgressUpdate{
+						Current:    index + 1,
+						Total:      total,
+						Sent:       sent,
+						Failed:     failed,
+						Percentage: float64(index+1) / float64(total) * 100,
+					}
+					return
 				}
-				return
+			} else if provider == "resend" {
+				// Pour Resend, réutiliser le sender global
+				senderEmail = config.AppConfig.ResendFromEmail
+				sendErr = s.sendWithResend(data.Email, req.Subject, body)
+				senderID = globalSenderID // ✅ Réutiliser le sender créé avant la boucle
 			}
 
-			// 6. Déterminer le status
+			// 5. Déterminer le status
 			status := "sent"
 			errorMessage := ""
 
@@ -221,12 +226,12 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				sent++
 			}
 
-			// 7. Enregistrer dans la DB
+			// 6. Enregistrer dans la DB
 			if err := database.InsertEmailSend(contentID, senderID, recipientID, status, errorMessage); err != nil {
 				fmt.Printf("❌ Erreur enregistrement DB: %v\n", err)
 			}
 
-			// 8. Broadcaster la progression
+			// 7. Broadcaster la progression
 			broadcast <- models.ProgressUpdate{
 				Current:    index + 1,
 				Total:      total,
@@ -235,10 +240,12 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				Percentage: float64(index+1) / float64(total) * 100,
 			}
 
-			// 9. Délai entre les envois
+			// 8. Délai entre les envois
 			delay := 500 * time.Millisecond
 			if provider == "mailgun" {
 				delay = 100 * time.Millisecond
+			} else if provider == "resend" {
+				delay = 600 * time.Millisecond // ✅ 1.6 req/sec
 			}
 			time.Sleep(delay)
 		}(i, emailData)

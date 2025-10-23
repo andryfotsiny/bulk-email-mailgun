@@ -17,9 +17,13 @@ func Init() {
 	AppConfig.SMTPPort, _ = strconv.Atoi(getEnv("SMTP_PORT", "465"))
 	AppConfig.Email = getEnv("SENDER_EMAIL", "")
 	AppConfig.Password = getEnv("SENDER_PASSWORD", "")
-	AppConfig.Provider = getEnv("EMAIL_PROVIDER", "gmail")
+	AppConfig.Provider = getEnv("EMAIL_PROVIDER", "mailgun")
 	AppConfig.MailgunDomain = getEnv("MAILGUN_DOMAIN", "")
 	AppConfig.MailgunAPIKey = getEnv("MAILGUN_API_KEY", "")
+
+	// ✅ Ajout Resend
+	AppConfig.ResendAPIKey = getEnv("RESEND_API_KEY", "")
+	AppConfig.ResendFromEmail = getEnv("RESEND_FROM_EMAIL", "")
 }
 
 func getEnv(key, defaultValue string) string {
