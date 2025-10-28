@@ -35,7 +35,12 @@ COPY --from=builder /app/main .
 COPY --from=builder /app/templates ./templates
 COPY --from=builder /app/data ./data
 
-RUN mkdir -p /app/data && chown -R appuser:appgroup /app
+# Créer le répertoire pour la DB et donner les permissions AVANT de changer d'utilisateur
+RUN mkdir -p /app/data && \
+    touch /app/emails.db && \
+    chown -R appuser:appgroup /app && \
+    chmod -R 755 /app && \
+    chmod 644 /app/emails.db
 
 USER appuser
 
