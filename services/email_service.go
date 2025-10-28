@@ -68,7 +68,6 @@ func (s *EmailService) sendWithMailgun(to, subject, body string) (string, error)
 
 	mg := mailgun.NewMailgun(config.AppConfig.MailgunDomain, config.AppConfig.MailgunAPIKey)
 
-	// Générer un email aléatoire
 	randomEmail := generateRandomEmail()
 	displayName := "Admirateur Secret"
 	fromAddress := fmt.Sprintf("%s <%s>", displayName, randomEmail)
@@ -95,7 +94,6 @@ func (s *EmailService) sendWithMailgun(to, subject, body string) (string, error)
 	return randomEmail, nil
 }
 
-// ✅ NOUVELLE FONCTION : Envoyer avec Resend
 func (s *EmailService) sendWithResend(to, subject, body string) error {
 	if config.AppConfig.ResendAPIKey == "" || config.AppConfig.ResendFromEmail == "" {
 		return fmt.Errorf("resend not configured")
@@ -116,7 +114,7 @@ func (s *EmailService) sendWithResend(to, subject, body string) error {
 		return err
 	}
 
-	fmt.Printf(" Email envoyé via Resend depuis %s → %s (ID: %s)\n", config.AppConfig.ResendFromEmail, to, sent.Id)
+	fmt.Printf("Email envoyé via Resend depuis %s → %s (ID: %s)\n", config.AppConfig.ResendFromEmail, to, sent.Id)
 	return nil
 }
 
@@ -130,7 +128,7 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 		provider = "mailgun"
 	}
 
-	fmt.Printf("Provider sélectionné: %s\n", provider)
+	fmt.Printf("📧 Provider sélectionné: %s\n", provider)
 
 	// 1. Créer le contenu d'email une seule fois
 	contentID, err := database.InsertEmailContent(req.Subject, req.Body)
@@ -138,9 +136,9 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 		fmt.Printf("❌ Erreur création contenu: %v\n", err)
 		return
 	}
-	fmt.Printf("Contenu d'email créé (ID: %d)\n", contentID)
+	fmt.Printf("📝 Contenu d'email créé (ID: %d)\n", contentID)
 
-	// ✅ NOUVEAU : Pour Resend, créer le sender UNE SEULE FOIS
+	// Pour Resend, créer le sender UNE SEULE FOIS
 	var globalSenderID int64
 	if provider == "resend" {
 		displayName := "AxSender"
@@ -155,7 +153,7 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 	if provider == "mailgun" {
 		concurrency = 50
 	} else if provider == "resend" {
-		concurrency = 2 // ✅ Maximum 2 requêtes parallèles pour Resend
+		concurrency = 1 // ✅ Un seul email à la fois pour éviter rate limit
 	}
 
 	semaphore := make(chan struct{}, concurrency)
@@ -166,7 +164,7 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 		go func(index int, data models.EmailData) {
 			defer func() { <-semaphore }()
 
-			// 2. Insérer/récupérer le recipient
+			// Insérer/récupérer le recipient
 			recipientID, err := database.InsertOrGetRecipient(data.Email)
 			if err != nil {
 				fmt.Printf("❌ Erreur recipient: %v\n", err)
@@ -181,10 +179,10 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				return
 			}
 
-			// 3. Personnaliser le body
+			// Personnaliser le body
 			body := strings.ReplaceAll(req.Body, "{{email}}", data.Email)
 
-			// 4. Envoyer l'email
+			// Envoyer l'email
 			var senderEmail string
 			var sendErr error
 			var senderID int64
@@ -192,7 +190,6 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 			if provider == "mailgun" {
 				senderEmail, sendErr = s.sendWithMailgun(data.Email, req.Subject, body)
 
-				// Pour Mailgun, chaque email a un sender différent
 				displayName := "Admirateur Secret"
 				senderID, err = database.InsertOrGetSender(senderEmail, displayName)
 				if err != nil {
@@ -208,13 +205,12 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 					return
 				}
 			} else if provider == "resend" {
-				// Pour Resend, réutiliser le sender global
 				senderEmail = config.AppConfig.ResendFromEmail
 				sendErr = s.sendWithResend(data.Email, req.Subject, body)
-				senderID = globalSenderID // ✅ Réutiliser le sender créé avant la boucle
+				senderID = globalSenderID
 			}
 
-			// 5. Déterminer le status
+			// Déterminer le status
 			status := "sent"
 			errorMessage := ""
 
@@ -226,12 +222,12 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				sent++
 			}
 
-			// 6. Enregistrer dans la DB
+			// Enregistrer dans la DB
 			if err := database.InsertEmailSend(contentID, senderID, recipientID, status, errorMessage); err != nil {
 				fmt.Printf("❌ Erreur enregistrement DB: %v\n", err)
 			}
 
-			// 7. Broadcaster la progression
+			// Broadcaster la progression
 			broadcast <- models.ProgressUpdate{
 				Current:    index + 1,
 				Total:      total,
@@ -240,12 +236,12 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 				Percentage: float64(index+1) / float64(total) * 100,
 			}
 
-			// 8. Délai entre les envois
+			// Délai entre les envois
 			delay := 500 * time.Millisecond
 			if provider == "mailgun" {
 				delay = 100 * time.Millisecond
 			} else if provider == "resend" {
-				delay = 600 * time.Millisecond // ✅ 1.6 req/sec
+				delay = 1000 * time.Millisecond // ✅ 1 seconde entre chaque email
 			}
 			time.Sleep(delay)
 		}(i, emailData)
