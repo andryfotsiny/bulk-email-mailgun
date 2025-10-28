@@ -109,6 +109,7 @@
             align-items: center;
             justify-content: center;
             font-size: 12px;
+            transition: width 0.3s ease;
         }
 
         .stats-grid {
@@ -133,9 +134,6 @@
             color: #666;
             text-transform: uppercase;
         }
-
-        #progressContainer { display: none; }
-        #progressContainer.active { display: block; }
 
         .alert {
             padding: 10px;
@@ -168,9 +166,88 @@
             max-height: 500px;
             overflow-y: auto;
         }
+
+        /* MODAL STYLES */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .modal h3 {
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #333;
+        }
+        .modal-body {
+            margin: 20px 0;
+        }
+        .modal-footer {
+            text-align: right;
+            margin-top: 20px;
+        }
+        .modal-close {
+            padding: 10px 20px;
+            background: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+        .modal-close:hover {
+            background: #555;
+        }
+        .modal-stats {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+        .modal-stats div {
+            margin: 8px 0;
+            font-size: 16px;
+        }
+        .ws-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 999;
+        }
+        .ws-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .ws-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
+<div class="ws-status" id="wsStatus">⚪ Connexion...</div>
+
 <div class="container">
     <h1>
         <span>AxSender</span>
@@ -219,31 +296,6 @@
                 <textarea id="body" placeholder="Bonjour {{name}},&#10;&#10;Votre message ici...&#10;&#10;Variables : {{name}}, {{company}}, {{city}}, {{email}}"></textarea>
             </div>
             <button id="sendBtn" onclick="startSending()" disabled>Envoyer les emails</button>
-        </div>
-
-        <div class="card" id="progressContainer">
-            <h2>Progression</h2>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
-            </div>
-            <div class="stats-grid">
-                <div class="stat-box">
-                    <div class="stat-number" id="statTotal">0</div>
-                    <div class="stat-label">Total</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-number" id="statSent">0</div>
-                    <div class="stat-label">Envoyés</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-number" id="statFailed">0</div>
-                    <div class="stat-label">Échoués</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-number" id="statCurrent">0</div>
-                    <div class="stat-label">En cours</div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -328,21 +380,134 @@
     </div>
 </div>
 
+<!-- MODAL CONFIRMATION -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal">
+        <h3>⚠️ Confirmation</h3>
+        <div class="modal-body" id="confirmBody"></div>
+        <div class="modal-footer">
+            <button onclick="closeModal('confirmModal')" style="margin-right: 10px; background: #999;">Annuler</button>
+            <button class="modal-close" onclick="confirmSend()">Confirmer</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PROGRESSION -->
+<div class="modal-overlay" id="progressModal">
+    <div class="modal">
+        <h3>📤 Envoi en cours...</h3>
+        <div class="modal-body">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+            </div>
+            <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-top: 20px;">
+                <div class="stat-box">
+                    <div class="stat-number" id="statTotal">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statSent">0</div>
+                    <div class="stat-label">Envoyés</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statFailed">0</div>
+                    <div class="stat-label">Échoués</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="statCurrent">0</div>
+                    <div class="stat-label">En cours</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL TERMINÉ -->
+<div class="modal-overlay" id="completedModal">
+    <div class="modal">
+        <h3> Envoi terminé</h3>
+        <div class="modal-body">
+            <div class="modal-stats">
+                <div><strong>Total :</strong> <span id="finalTotal">0</span></div>
+                <div><strong>Envoyés :</strong> <span id="finalSent" >0</span></div>
+                <div><strong>Échoués :</strong> <span id="finalFailed" >0</span></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-close" onclick="closeModal('completedModal')">Fermer</button>
+        </div>
+    </div>
+</div>
+
 <script>
     let allEmailsData = [];
     let ws;
+    let wsReconnectTimeout;
+
+    // ✅ FIX WEBSOCKET : Détection automatique du protocole
+    function getWebSocketURL() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        return `${protocol}//${host}/ws`;
+    }
+
+    function updateWSStatus(connected) {
+        const el = document.getElementById('wsStatus');
+        if (connected) {
+            el.textContent = '🟢 Connecté';
+            el.className = 'ws-status connected';
+        } else {
+            el.textContent = '🔴 Déconnecté';
+            el.className = 'ws-status disconnected';
+        }
+    }
 
     function connectWebSocket() {
-        ws = new WebSocket('ws://localhost:8080/ws');
+        clearTimeout(wsReconnectTimeout);
+
+        const wsURL = getWebSocketURL();
+        console.log('🔌 Connexion WebSocket:', wsURL);
+
+        ws = new WebSocket(wsURL);
+
+        ws.onopen = () => {
+            console.log('✅ WebSocket connecté');
+            updateWSStatus(true);
+        };
+
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
             if (msg.type === 'progress') {
                 updateProgress(msg.data);
             }
         };
-        ws.onclose = () => setTimeout(connectWebSocket, 3000);
+
+        ws.onerror = (error) => {
+            console.error('❌ Erreur WebSocket:', error);
+            updateWSStatus(false);
+        };
+
+        ws.onclose = () => {
+            console.log('🔌 WebSocket fermé, reconnexion dans 3s...');
+            updateWSStatus(false);
+            wsReconnectTimeout = setTimeout(connectWebSocket, 3000);
+        };
     }
+
     connectWebSocket();
+
+    // MODAL FUNCTIONS
+    function showModal(modalId) {
+        document.getElementById(modalId).classList.add('active');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+
+        if (modalId === 'completedModal') {
+            document.getElementById('sendBtn').disabled = false;
+        }
+    }
 
     function switchTab(tabName) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -391,7 +556,8 @@
 
     function startSending() {
         if (!allEmailsData.length) {
-            alert('Veuillez d\'abord charger un fichier CSV');
+            document.getElementById('confirmBody').textContent = 'Veuillez d\'abord charger un fichier CSV';
+            showModal('confirmModal');
             return;
         }
 
@@ -400,15 +566,26 @@
         const provider = document.getElementById('provider').value;
 
         if (!subject || !body) {
-            alert('Veuillez remplir l\'objet et le corps du message');
+            document.getElementById('confirmBody').textContent = 'Veuillez remplir l\'objet et le corps du message';
+            showModal('confirmModal');
             return;
         }
 
-        const providerName = provider === 'mailgun' ? 'Mailgun' : 'Gmail';
-        if (!confirm('Envoyer ' + allEmailsData.length + ' emails via ' + providerName + ' ?')) return;
+        const providerName = provider === 'mailgun' ? 'Mailgun' : 'Resend';
+        document.getElementById('confirmBody').innerHTML =
+            `Envoyer <strong>${allEmailsData.length} emails</strong> via <strong>${providerName}</strong> ?`;
+        showModal('confirmModal');
+    }
 
-        document.getElementById('progressContainer').classList.add('active');
+    function confirmSend() {
+        closeModal('confirmModal');
+
+        const subject = document.getElementById('subject').value;
+        const body = document.getElementById('body').value;
+        const provider = document.getElementById('provider').value;
+
         document.getElementById('sendBtn').disabled = true;
+        showModal('progressModal');
 
         fetch('/api/send', {
             method: 'POST',
@@ -423,15 +600,17 @@
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
-                    alert('Erreur : ' + (data.error || 'Erreur inconnue'));
+                    closeModal('progressModal');
+                    document.getElementById('confirmBody').textContent = 'Erreur : ' + (data.error || 'Erreur inconnue');
+                    showModal('confirmModal');
                     document.getElementById('sendBtn').disabled = false;
-                    document.getElementById('progressContainer').classList.remove('active');
                 }
             })
             .catch(err => {
-                alert('Erreur : ' + err.message);
+                closeModal('progressModal');
+                document.getElementById('confirmBody').textContent = 'Erreur : ' + err.message;
+                showModal('confirmModal');
                 document.getElementById('sendBtn').disabled = false;
-                document.getElementById('progressContainer').classList.remove('active');
             });
     }
 
@@ -446,9 +625,14 @@
 
         if (data.current === data.total) {
             setTimeout(() => {
-                alert('Terminé\n\nTotal : ' + data.total + '\nEnvoyés : ' + data.sent + '\nÉchoués : ' + data.failed);
-                document.getElementById('sendBtn').disabled = false;
-            }, 1000);
+                closeModal('progressModal');
+
+                document.getElementById('finalTotal').textContent = data.total;
+                document.getElementById('finalSent').textContent = data.sent;
+                document.getElementById('finalFailed').textContent = data.failed;
+
+                showModal('completedModal');
+            }, 500);
         }
     }
 
