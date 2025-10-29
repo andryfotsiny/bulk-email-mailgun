@@ -9,7 +9,6 @@ type EmailConfig struct {
 	MailgunDomain string `json:"mailgun_domain"`
 	MailgunAPIKey string `json:"mailgun_api_key"`
 
-	// ✅ Ajout Resend
 	ResendAPIKey    string `json:"resend_api_key"`
 	ResendFromEmail string `json:"resend_from_email"`
 }
@@ -19,10 +18,11 @@ type EmailData struct {
 }
 
 type SendRequest struct {
-	Emails   []EmailData `json:"emails"`
-	Subject  string      `json:"subject"`
-	Body     string      `json:"body"`
-	Provider string      `json:"provider"` // "mailgun", "resend"
+	Emails     []EmailData `json:"emails"`
+	Subject    string      `json:"subject"`
+	Body       string      `json:"body"`
+	Provider   string      `json:"provider"` // "mailgun", "resend"
+	SenderName string      `json:"sender_name"`
 }
 
 type ProgressUpdate struct {

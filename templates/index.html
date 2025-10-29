@@ -65,7 +65,7 @@
 
         .form-group { margin-bottom: 12px; }
         label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; }
-        input, textarea {
+        input, textarea, select {
             width: 100%;
             padding: 8px;
             border: 1px solid #ccc;
@@ -167,7 +167,6 @@
             overflow-y: auto;
         }
 
-        /* MODAL STYLES */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -243,10 +242,17 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        .sender-name-group {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #b8daff;
+        }
     </style>
 </head>
 <body>
-<div class="ws-status" id="wsStatus">⚪ Connexion...</div>
+<div class="ws-status" id="wsStatus">Connexion...</div>
 
 <div class="container">
     <h1>
@@ -265,13 +271,13 @@
     <div id="tab-send" class="tab-content active">
         <div class="card">
             <h2>Configuration de l'envoi</h2>
-            <div class="form-group">
-                <label>Provider d'envoi</label>
-                <select id="provider" style="padding: 8px; font-size: 14px;">
-                    <option value="mailgun" selected>Mailgun (emails aléatoires)</option>
-                    <option value="resend">Resend (email configuré)</option>
-                </select>
-                <small>Mailgun génère des emails aléatoires. Resend utilise votre domaine configuré.</small>
+            <div class="form-group sender-name-group">
+                <label>Nom de l'expéditeur</label>
+                <input type="text" id="senderName" placeholder="Dupant...">
+                <small>
+                    Exemple : "Dupant" enverra depuis Dupant@axsender.com<br>
+                    Laissez vide pour utiliser noreply@axsender.com
+                </small>
             </div>
         </div>
 
@@ -293,7 +299,7 @@
             </div>
             <div class="form-group">
                 <label>Corps du message</label>
-                <textarea id="body" placeholder="Bonjour {{name}},&#10;&#10;Votre message ici...&#10;&#10;Variables : {{name}}, {{company}}, {{city}}, {{email}}"></textarea>
+                <textarea id="body" placeholder="Bonjour,&#10;&#10;Votre message ici..."></textarea>
             </div>
             <button id="sendBtn" onclick="startSending()" disabled>Envoyer les emails</button>
         </div>
@@ -383,7 +389,7 @@
 <!-- MODAL CONFIRMATION -->
 <div class="modal-overlay" id="confirmModal">
     <div class="modal">
-        <h3>⚠️ Confirmation</h3>
+        <h3>Confirmation</h3>
         <div class="modal-body" id="confirmBody"></div>
         <div class="modal-footer">
             <button onclick="closeModal('confirmModal')" style="margin-right: 10px; background: #999;">Annuler</button>
@@ -395,7 +401,7 @@
 <!-- MODAL PROGRESSION -->
 <div class="modal-overlay" id="progressModal">
     <div class="modal">
-        <h3>📤 Envoi en cours...</h3>
+        <h3>Envoi en cours...</h3>
         <div class="modal-body">
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
@@ -425,12 +431,12 @@
 <!-- MODAL TERMINÉ -->
 <div class="modal-overlay" id="completedModal">
     <div class="modal">
-        <h3> Envoi terminé</h3>
+        <h3>Envoi terminé</h3>
         <div class="modal-body">
             <div class="modal-stats">
                 <div><strong>Total :</strong> <span id="finalTotal">0</span></div>
-                <div><strong>Envoyés :</strong> <span id="finalSent" >0</span></div>
-                <div><strong>Échoués :</strong> <span id="finalFailed" >0</span></div>
+                <div><strong>Envoyés :</strong> <span id="finalSent">0</span></div>
+                <div><strong>Échoués :</strong> <span id="finalFailed">0</span></div>
             </div>
         </div>
         <div class="modal-footer">
@@ -444,7 +450,6 @@
     let ws;
     let wsReconnectTimeout;
 
-    // ✅ FIX WEBSOCKET : Détection automatique du protocole
     function getWebSocketURL() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
@@ -454,10 +459,10 @@
     function updateWSStatus(connected) {
         const el = document.getElementById('wsStatus');
         if (connected) {
-            el.textContent = '🟢 Connecté';
+            el.textContent = 'Connecté';
             el.className = 'ws-status connected';
         } else {
-            el.textContent = '🔴 Déconnecté';
+            el.textContent = 'Déconnecté';
             el.className = 'ws-status disconnected';
         }
     }
@@ -466,12 +471,12 @@
         clearTimeout(wsReconnectTimeout);
 
         const wsURL = getWebSocketURL();
-        console.log('🔌 Connexion WebSocket:', wsURL);
+        console.log('Connexion WebSocket:', wsURL);
 
         ws = new WebSocket(wsURL);
 
         ws.onopen = () => {
-            console.log('✅ WebSocket connecté');
+            console.log('WebSocket connecté');
             updateWSStatus(true);
         };
 
@@ -483,12 +488,12 @@
         };
 
         ws.onerror = (error) => {
-            console.error('❌ Erreur WebSocket:', error);
+            console.error('Erreur WebSocket:', error);
             updateWSStatus(false);
         };
 
         ws.onclose = () => {
-            console.log('🔌 WebSocket fermé, reconnexion dans 3s...');
+            console.log('WebSocket fermé, reconnexion dans 3s...');
             updateWSStatus(false);
             wsReconnectTimeout = setTimeout(connectWebSocket, 3000);
         };
@@ -496,7 +501,6 @@
 
     connectWebSocket();
 
-    // MODAL FUNCTIONS
     function showModal(modalId) {
         document.getElementById(modalId).classList.add('active');
     }
@@ -563,7 +567,6 @@
 
         const subject = document.getElementById('subject').value;
         const body = document.getElementById('body').value;
-        const provider = document.getElementById('provider').value;
 
         if (!subject || !body) {
             document.getElementById('confirmBody').textContent = 'Veuillez remplir l\'objet et le corps du message';
@@ -571,9 +574,13 @@
             return;
         }
 
-        const providerName = provider === 'mailgun' ? 'Mailgun' : 'Resend';
-        document.getElementById('confirmBody').innerHTML =
-            `Envoyer <strong>${allEmailsData.length} emails</strong> via <strong>${providerName}</strong> ?`;
+        const senderName = document.getElementById('senderName').value.trim();
+        const displayEmail = senderName ? `${senderName}@axsender.com` : 'noreply@axsender.com';
+
+        let confirmMessage = `Envoyer <strong>${allEmailsData.length} emails</strong> ?`;
+        confirmMessage += `<br><br>Expéditeur : <strong>${displayEmail}</strong>`;
+
+        document.getElementById('confirmBody').innerHTML = confirmMessage;
         showModal('confirmModal');
     }
 
@@ -582,7 +589,7 @@
 
         const subject = document.getElementById('subject').value;
         const body = document.getElementById('body').value;
-        const provider = document.getElementById('provider').value;
+        const senderName = document.getElementById('senderName').value.trim();
 
         document.getElementById('sendBtn').disabled = true;
         showModal('progressModal');
@@ -594,7 +601,8 @@
                 emails: allEmailsData,
                 subject: subject,
                 body: body,
-                provider: provider
+                provider: 'resend',
+                sender_name: senderName
             })
         })
             .then(r => r.json())

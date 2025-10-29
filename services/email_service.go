@@ -49,14 +49,38 @@ func generateRandomEmail() string {
 	return fmt.Sprintf("%s.%s@%s", randomName, randomSuffix, config.AppConfig.MailgunDomain)
 }
 
+// ✅ NOUVEAU: Construire l'email Resend dynamiquement
+func buildResendEmail(senderName string) string {
+	// Nettoyer le nom (enlever espaces, caractères spéciaux)
+	senderName = strings.TrimSpace(senderName)
+	senderName = strings.ToLower(senderName)
+	senderName = strings.ReplaceAll(senderName, " ", ".")
+
+	// Si vide, utiliser "noreply" par défaut
+	if senderName == "" {
+		senderName = "noreply"
+	}
+
+	// Extraire le domaine de RESEND_FROM_EMAIL
+	domain := config.AppConfig.ResendFromEmail
+	if strings.Contains(domain, "@") {
+		parts := strings.Split(domain, "@")
+		domain = parts[1]
+	}
+
+	return fmt.Sprintf("%s@%s", senderName, domain)
+}
+
 // SendEmailWithProvider envoie un email via le provider choisi
-func (s *EmailService) SendEmailWithProvider(to, subject, body, provider string) (string, error) {
+func (s *EmailService) SendEmailWithProvider(to, subject, body, provider, senderName string) (string, error) {
 	if provider == "mailgun" {
 		senderEmail, err := s.sendWithMailgun(to, subject, body)
 		return senderEmail, err
 	}
 	if provider == "resend" {
-		return config.AppConfig.ResendFromEmail, s.sendWithResend(to, subject, body)
+		// ✅ Construire l'email dynamiquement
+		dynamicEmail := buildResendEmail(senderName)
+		return dynamicEmail, s.sendWithResend(to, subject, body, dynamicEmail, senderName)
 	}
 	return "", fmt.Errorf("provider inconnu: %s", provider)
 }
@@ -94,15 +118,26 @@ func (s *EmailService) sendWithMailgun(to, subject, body string) (string, error)
 	return randomEmail, nil
 }
 
-func (s *EmailService) sendWithResend(to, subject, body string) error {
-	if config.AppConfig.ResendAPIKey == "" || config.AppConfig.ResendFromEmail == "" {
+// ✅ MODIFIÉ: Accepter l'email et le nom dynamiques
+func (s *EmailService) sendWithResend(to, subject, body, fromEmail, displayName string) error {
+	if config.AppConfig.ResendAPIKey == "" {
 		return fmt.Errorf("resend not configured")
 	}
 
 	client := resend.NewClient(config.AppConfig.ResendAPIKey)
 
+	// Si pas de displayName, utiliser la partie avant le @
+	if displayName == "" {
+		if strings.Contains(fromEmail, "@") {
+			displayName = strings.Split(fromEmail, "@")[0]
+		}
+	}
+
+	// Formater avec le nom d'affichage
+	fromAddress := fmt.Sprintf("%s <%s>", strings.Title(displayName), fromEmail)
+
 	params := &resend.SendEmailRequest{
-		From:    config.AppConfig.ResendFromEmail,
+		From:    fromAddress,
 		To:      []string{to},
 		Subject: subject,
 		Html:    body,
@@ -114,7 +149,7 @@ func (s *EmailService) sendWithResend(to, subject, body string) error {
 		return err
 	}
 
-	fmt.Printf("Email envoyé via Resend depuis %s → %s (ID: %s)\n", config.AppConfig.ResendFromEmail, to, sent.Id)
+	fmt.Printf("✅ Email envoyé via Resend depuis %s → %s (ID: %s)\n", fromEmail, to, sent.Id)
 	return nil
 }
 
@@ -141,12 +176,19 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 	// Pour Resend, créer le sender UNE SEULE FOIS
 	var globalSenderID int64
 	if provider == "resend" {
-		displayName := "AxSender"
-		globalSenderID, err = database.InsertOrGetSender(config.AppConfig.ResendFromEmail, displayName)
+		// ✅ Utiliser l'email dynamique
+		dynamicEmail := buildResendEmail(req.SenderName)
+		displayName := req.SenderName
+		if displayName == "" {
+			displayName = "AxSender"
+		}
+
+		globalSenderID, err = database.InsertOrGetSender(dynamicEmail, displayName)
 		if err != nil {
 			fmt.Printf("❌ Erreur création sender: %v\n", err)
 			return
 		}
+		fmt.Printf("📧 Expéditeur Resend: %s <%s>\n", displayName, dynamicEmail)
 	}
 
 	concurrency := 10
@@ -205,8 +247,9 @@ func (s *EmailService) ProcessEmails(req models.SendRequest, broadcast chan<- mo
 					return
 				}
 			} else if provider == "resend" {
-				senderEmail = config.AppConfig.ResendFromEmail
-				sendErr = s.sendWithResend(data.Email, req.Subject, body)
+				// ✅ Utiliser l'email dynamique
+				senderEmail = buildResendEmail(req.SenderName)
+				sendErr = s.sendWithResend(data.Email, req.Subject, body, senderEmail, req.SenderName)
 				senderID = globalSenderID
 			}
 
