@@ -249,6 +249,23 @@
             border-radius: 4px;
             border: 1px solid #b8daff;
         }
+
+        .email-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .email-input-wrapper input {
+            width: 200px;
+            flex-shrink: 0;
+        }
+
+        .email-domain {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -273,9 +290,11 @@
             <h2>Configuration de l'envoi</h2>
             <div class="form-group sender-name-group">
                 <label>Nom de l'expéditeur</label>
-                <input type="text" id="senderName" placeholder="Dupant...">
+                <div class="email-input-wrapper">
+                    <input type="text" id="senderName" placeholder="Dupant">
+                    <span class="email-domain">@axsender.com</span>
+                </div>
                 <small>
-                    Exemple : "Dupant" enverra depuis Dupant@axsender.com<br>
                     Laissez vide pour utiliser noreply@axsender.com
                 </small>
             </div>
